@@ -10,112 +10,108 @@ const jwt = require('jsonwebtoken');
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = asyncHandler(async (req, res, next) => {
+  const {
+    firstName,
+    lastName,
+    email,
+    password,
+    phone,
+    address = {},
+    specialties = [],
+    geographicalPreferences = []
+  } = req.body;
+  
+  // Validate required fields
+  if (!firstName || !lastName || !email || !password) {
+    return next(new ErrorResponse('Please provide all required fields', 400));
+  }
+
+  // Check for existing user
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    return next(new ErrorResponse('Email already registered', 400));
+  }
+
+  // Handle file uploads if present
+  let profilePhotoUrl = null;
+  let resumeUrl = null;
+
+  if (req.files) {
+    // // Upload profile image if provided
+    // if (req.files.profileImage) {
+    //   profilePhotoUrl = await uploadToS3(req.files.profileImage[0], 'profile-images');
+    // }
+
+    // // Upload CV if provided
+    // if (req.files.cv) {
+    //   resumeUrl = await uploadToS3(req.files.cv[0], 'resumes');
+    // }
+  }
+
+  // Create user
+  const user = await User.create({
+    firstName,
+    lastName,
+    name: `${firstName} ${lastName}`,
+    email,
+    password,
+    phoneNumber: phone,
+    address: {
+      street: address.street || '',
+      city: address.city || '',
+      state: address.state || '',
+      zipCode: address.zipCode || '',
+      country: address.country || ''
+    },
+    specialties,
+    geographicalPreferences,
+    profilePhoto: profilePhotoUrl || 'default-profile.jpg',
+    resume: resumeUrl,
+    role: 'applicant',
+    emailVerificationToken: crypto.randomBytes(20).toString('hex')
+  });
+
+  // Generate verification token
+  const verificationToken = user.getEmailVerificationToken();
+  await user.save({ validateBeforeSave: false });
+
+  // Create verification URL
+  const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${verificationToken}`;
+
+  const message = `
+    <h1>Email Verification</h1>
+    <p>Please click the link below to verify your email address:</p>
+    <a href="${verificationUrl}" target="_blank">Verify Email</a>
+  `;
+
   try {
-    const {
-      firstName,
-      lastName,
-      email,
-      password,
-      phone,
-      address = {},
-      specialties = [],
-      geographicalPreferences = []
-    } = req.body;
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password) {
-      return new ErrorResponse('Please provide all required fields', 400);
-    }
+    // await sendEmail({
+    //   email: user.email,
+    //   subject: 'Email Verification',
+    //   message
+    // });
 
-    // Check for existing user
-    const existingUser = await User.findOne({ email });
+    // Generate token
+    const token = user.getSignedJwtToken();
 
-    if (existingUser) {
-      return new ErrorResponse('Email already registered', 400);
-    }
+    // Remove password from response
+    user.password = undefined;
 
-    // Handle file uploads if present
-    let profilePhotoUrl = null;
-    let resumeUrl = null;
-
-    if (req.files) {
-      // // Upload profile image if provided
-      // if (req.files.profileImage) {
-      //   profilePhotoUrl = await uploadToS3(req.files.profileImage[0], 'profile-images');
-      // }
-
-      // // Upload CV if provided
-      // if (req.files.cv) {
-      //   resumeUrl = await uploadToS3(req.files.cv[0], 'resumes');
-      // }
-    }
-
-    // Create user
-    const user = await User.create({
-      firstName,
-      lastName,
-      name: `${firstName} ${lastName}`,
-      email,
-      password,
-      phoneNumber: phone,
-      address: {
-        street: address.street || '',
-        city: address.city || '',
-        state: address.state || '',
-        zipCode: address.zipCode || '',
-        country: address.country || ''
-      },
-      specialties,
-      geographicalPreferences,
-      profilePhoto: profilePhotoUrl || 'default-profile.jpg',
-      resume: resumeUrl,
-      role: 'applicant',
-      emailVerificationToken: crypto.randomBytes(20).toString('hex')
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully. Please verify your email.',
+      token,
+      user
     });
+  } catch (err) {
+    console.error('Email could not be sent', err);
 
-    // Generate verification token
-    const verificationToken = user.getEmailVerificationToken();
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpire = undefined;
     await user.save({ validateBeforeSave: false });
 
-    // Create verification URL
-    const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${verificationToken}`;
-
-    const message = `
-      <h1>Email Verification</h1>
-      <p>Please click the link below to verify your email address:</p>
-      <a href="${verificationUrl}" target="_blank">Verify Email</a>
-    `;
-
-    try {
-      // await sendEmail({
-      //   email: user.email,
-      //   subject: 'Email Verification',
-      //   message
-      // });
-
-      // Generate token
-      const token = user.getSignedJwtToken();
-
-      // Remove password from response
-      user.password = undefined;
-
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully. Please verify your email.',
-        token,
-        user
-      });
-    } catch (err) {
-      console.error('Email could not be sent', err);
-
-      user.emailVerificationToken = undefined;
-      user.emailVerificationExpire = undefined;
-      await user.save({ validateBeforeSave: false });
-
-      return new ErrorResponse('Email could not be sent', 500);
-    }
-  } catch (error) {
-    console.error('Internal server error:', error);
-    return new ErrorResponse('Internal server error', 500);
+    return next(new ErrorResponse('Email could not be sent', 500));
   }
 });
 

@@ -3,185 +3,7 @@
  */
 
 // Base API URL - will use relative URL when deployed together
-const API_URL = '/api';
-
-// Mock user data for fake authentication, can be customized at runtime
-let MOCK_USER = {
-  id: 'mock-user-123',
-  firstName: 'Demo',
-  lastName: 'User',
-  email: 'user@example.com',
-  phone: '+1 (555) 123-4567',
-  university: 'Johns Hopkins University School of Medicine',
-  specialty: 'Cardiology',
-  graduationYear: '2023',
-  profileImage: null
-};
-
-// Simulated local database for development
-const LocalDB = {
-  // Initialize the database with default values if needed
-  init: () => {
-    // First clear any old data format
-    if (localStorage.getItem('dashboardData')) {
-      localStorage.removeItem('dashboardData');
-    }
-    if (localStorage.getItem('user')) {
-      // Migrate old user data to new format
-      try {
-        const oldUser = JSON.parse(localStorage.getItem('user'));
-        if (oldUser && !localStorage.getItem('localDB_user')) {
-          localStorage.setItem('localDB_user', JSON.stringify(oldUser));
-        }
-      } catch (e) {
-        console.warn('Failed to migrate old user data', e);
-      }
-      localStorage.removeItem('user');
-    }
-    
-    // Check if user exists
-    if (!localStorage.getItem('localDB_user')) {
-      const defaultUser = {
-        id: `user-${Date.now()}`,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@medical.edu',
-        phone: '+1 (555) 123-4567',
-        university: 'Johns Hopkins University School of Medicine',
-        specialty: 'Cardiology',
-        graduationYear: '2023',
-        profileImage: null
-      };
-      localStorage.setItem('localDB_user', JSON.stringify(defaultUser));
-    } else {
-      // Ensure all required fields exist
-      try {
-        const user = JSON.parse(localStorage.getItem('localDB_user'));
-        const updatedUser = {
-          ...user,
-          phone: user.phone || '+1 (555) 123-4567',
-          university: user.university || 'Johns Hopkins University School of Medicine',
-          specialty: user.specialty || 'Cardiology',
-          graduationYear: user.graduationYear || '2023'
-        };
-        localStorage.setItem('localDB_user', JSON.stringify(updatedUser));
-      } catch (e) {
-        console.error('Error updating user fields', e);
-      }
-    }
-
-    // Check if dashboard data exists
-    if (!localStorage.getItem('localDB_dashboard')) {
-      const defaultDashboard = {
-        sections: {
-          personalStatement: {
-            isComplete: false,
-            status: 'Not Started'
-          },
-          researchProducts: {
-            isComplete: false,
-            count: 0,
-            status: 'Not Started'
-          },
-          experiences: {
-            isComplete: false,
-            count: 0,
-            mostMeaningfulCount: 0,
-            status: 'Not Started'
-          },
-          miscellaneous: {
-            isComplete: false,
-            status: 'Not Started'
-          },
-          programPreference: {
-            isComplete: false,
-            status: 'Not Started'
-          }
-        }
-      };
-      localStorage.setItem('localDB_dashboard', JSON.stringify(defaultDashboard));
-    }
-  },
-
-  // Get user data
-  getUser: () => {
-    LocalDB.init(); // Ensure DB is initialized
-    const userData = localStorage.getItem('localDB_user');
-    return userData ? JSON.parse(userData) : null;
-  },
-
-  // Update user data
-  updateUser: (userData) => {
-    const currentUser = LocalDB.getUser() || {};
-    const updatedUser = { ...currentUser, ...userData };
-    
-    // Ensure required fields
-    if (!updatedUser.phone) updatedUser.phone = '+1 (555) 123-4567';
-    if (!updatedUser.university) updatedUser.university = 'Johns Hopkins University School of Medicine';
-    if (!updatedUser.specialty) updatedUser.specialty = 'Cardiology';
-    if (!updatedUser.graduationYear) updatedUser.graduationYear = '2023';
-    
-    localStorage.setItem('localDB_user', JSON.stringify(updatedUser));
-    
-    // For debugging
-    console.log('Updated user data:', updatedUser);
-    
-    return updatedUser;
-  },
-
-  // Get dashboard data
-  getDashboard: () => {
-    LocalDB.init(); // Ensure DB is initialized
-    const dashboardData = localStorage.getItem('localDB_dashboard');
-    return dashboardData ? JSON.parse(dashboardData) : null;
-  },
-
-  // Update dashboard data
-  updateDashboard: (dashboardData) => {
-    const currentDashboard = LocalDB.getDashboard() || {};
-    const updatedDashboard = { ...currentDashboard, ...dashboardData };
-    localStorage.setItem('localDB_dashboard', JSON.stringify(updatedDashboard));
-    return updatedDashboard;
-  },
-
-  // Update a section in the dashboard
-  updateSection: (sectionName, data) => {
-    const dashboard = LocalDB.getDashboard();
-    if (dashboard && dashboard.sections && dashboard.sections[sectionName]) {
-      dashboard.sections[sectionName] = {
-        ...dashboard.sections[sectionName],
-        ...data
-      };
-
-      // Recalculate progress
-      let completedSections = 0;
-      const totalSections = Object.keys(dashboard.sections).length;
-      
-      Object.values(dashboard.sections).forEach(section => {
-        if (section.isComplete) completedSections++;
-      });
-      
-      const percentageComplete = Math.round((completedSections / totalSections) * 100);
-      
-      // Update progress data
-      dashboard.progress = {
-        completedSections,
-        totalSections,
-        percentageComplete
-      };
-
-      localStorage.setItem('localDB_dashboard', JSON.stringify(dashboard));
-    }
-    
-    return LocalDB.getDashboard();
-  },
-
-  // Clear all local database data (for testing/logout)
-  clear: () => {
-    localStorage.removeItem('localDB_user');
-    localStorage.removeItem('localDB_dashboard');
-  }
-};
+const API_URL = 'http://localhost:5001/api';
 
 // Helper function to handle fetch responses
 const handleResponse = async (response) => {
@@ -199,639 +21,443 @@ const handleResponse = async (response) => {
     return data;
   }
   
-  // Handle non-JSON responses
+  // For non-JSON responses
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    throw new Error('API Error');
   }
   
-  return response.text();
+  return { success: true };
 };
 
-// Get a user from localStorage if available
-const getSavedUser = () => {
-  try {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      return JSON.parse(savedUser);
-    }
-    return null;
-  } catch (error) {
-    console.error('Error retrieving user from localStorage:', error);
-    return null;
+// Get the auth token from localStorage
+const getAuthToken = () => {
+  const token = localStorage.getItem('token');
+  console.log("Auth token retrieved from localStorage:", token ? "exists" : "not found");
+  return token;
+};
+
+// Configure request headers with auth token
+const getAuthHeaders = () => {
+  const token = getAuthToken();
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    console.log("Added Authorization header with Bearer token");
+  } else {
+    console.warn("No token available for Authorization header");
   }
+  
+  return headers;
 };
 
-// Wrap fetch requests with error handling
+// Wrapper for fetch API with authentication
 const safeFetch = async (url, options = {}) => {
+  // Ensure headers exist
+  options.headers = options.headers || {};
+  
+  // Add auth headers if not specifically disabled
+  if (options.auth !== false) {
+    const authHeaders = getAuthHeaders();
+    Object.assign(options.headers, authHeaders);
+    console.log(`Request to ${url} with auth:`, options.method || 'GET');
+    delete options.auth;
+  } else {
+    console.log(`Request to ${url} without auth:`, options.method || 'GET');
+  }
+  
   try {
-    return await fetch(url, options);
+    console.log(`Fetching ${url}...`);
+    const response = await fetch(url, options);
+    console.log(`Response status from ${url}:`, response.status);
+    return await handleResponse(response);
   } catch (error) {
-    console.error('Network error:', error);
-    // For demo purposes, return a fake successful response with mock data
-    const savedUser = getSavedUser() || MOCK_USER;
-    
-    return {
-      ok: true,
-      headers: {
-        get: () => 'application/json'
-      },
-      json: () => Promise.resolve({ 
-        success: true,
-        token: 'fake-jwt-token',
-        user: savedUser
-      })
-    };
+    console.error(`API Error (${url}):`, error);
+    throw error;
   }
 };
 
-// Get authentication token from local storage
-const getAuthToken = () => localStorage.getItem('token');
-
-// Authentication API calls - updated to use LocalDB for user data
+// Authentication API
 export const auth = {
-  // Reference to MOCK_USER so it can be customized at runtime
-  MOCK_USER,
-  
-  // Register a new user - store in LocalDB
+  // Register a new user
   register: async (userData) => {
-    // Add an ID if not provided
-    const userDataToSave = {
-      id: userData.id || `user-${Date.now()}`,
-      ...userData
+    // Create FormData if there are file uploads
+    let body;
+    let options = {
+      method: 'POST',
+      auth: false // No auth for registration
     };
     
-    // Ensure all required fields have defaults
-    if (!userDataToSave.phone) userDataToSave.phone = '+1 (555) 123-4567';
-    if (!userDataToSave.university) userDataToSave.university = 'Johns Hopkins University School of Medicine';
-    if (!userDataToSave.specialty) userDataToSave.specialty = 'Cardiology';
-    if (!userDataToSave.graduationYear) userDataToSave.graduationYear = '2023';
-    
-    // Save to LocalDB
-    LocalDB.updateUser(userDataToSave);
-    
-    // Generate a fake token
-    localStorage.setItem('token', 'fake-jwt-token');
-    
-    return {
-      success: true,
-      token: 'fake-jwt-token',
-      user: userDataToSave
-    };
-  },
-  
-  // Login user - use LocalDB
-  login: async (credentials) => {
-    // For demo purposes, create or update user
-    let customUser = {};
-    
-    // If customUserData is provided, use that
-    if (credentials.customUserData) {
-      customUser = { ...credentials.customUserData };
+    if (userData.image || userData.cv) {
+      body = new FormData();
+      
+      // Add all text fields
+      Object.keys(userData).forEach(key => {
+        if (userData[key] !== null && typeof userData[key] !== 'object') {
+          body.append(key, userData[key]);
+        }
+      });
+      
+      // Add file fields
+      if (userData.image) body.append('profileImage', userData.image);
+      if (userData.cv) body.append('cv', userData.cv);
+      
+      // Don't set Content-Type header - browser will set it with boundary
+      options.headers = {};
     } else {
-      // Get existing user or create default
-      customUser = LocalDB.getUser() || {};
+      // JSON request
+      body = JSON.stringify(userData);
+      options.headers = { 'Content-Type': 'application/json' };
     }
     
-    // Add the email as it's a required field
-    customUser.email = credentials.email || customUser.email;
+    options.body = body;
     
-    // Add id if not present
-    if (!customUser.id) {
-      customUser.id = `user-${Date.now()}`;
-    }
-    
-    // Ensure all required fields have defaults
-    if (!customUser.phone) customUser.phone = '+1 (555) 123-4567';
-    if (!customUser.university) customUser.university = 'Johns Hopkins University School of Medicine';
-    if (!customUser.specialty) customUser.specialty = 'Cardiology';
-    if (!customUser.graduationYear) customUser.graduationYear = '2023';
-    
-    // Save to LocalDB
-    LocalDB.updateUser(customUser);
-    
-    // Set token
-    localStorage.setItem('token', 'fake-jwt-token');
-    
-    return {
-      success: true,
-      token: 'fake-jwt-token',
-      user: customUser
-    };
+    return await safeFetch(`${API_URL}/auth/register`, options);
   },
   
-  // Get user profile from LocalDB
+  // Login user
+  login: async (credentials) => {
+    return await safeFetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/json' },
+      auth: false // No auth for login
+    });
+  },
+  
+  // Logout user
+  logout: async () => {
+    return await safeFetch(`${API_URL}/auth/logout`, {
+      method: 'GET'
+    });
+  },
+  
+  // Get user profile
   getProfile: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    // Get user from LocalDB
-    const user = LocalDB.getUser();
-    
-    return {
-      success: true,
-      user: user || {}
-    };
+    return await safeFetch(`${API_URL}/auth/profile`, {
+      method: 'GET'
+    });
   },
   
-  // Update user profile in LocalDB
+  // Update user profile
   updateProfile: async (profileData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    // Update user in LocalDB
-    const updatedUser = LocalDB.updateUser(profileData);
-    
-    return {
-      success: true,
-      user: updatedUser
+    // Handle file uploads if present
+    let body;
+    let options = {
+      method: 'PUT'
     };
+    
+    if (profileData.profileImage || profileData.cv) {
+      body = new FormData();
+      
+      // Add all text fields
+      Object.keys(profileData).forEach(key => {
+        if (profileData[key] !== null && typeof profileData[key] !== 'object') {
+          body.append(key, profileData[key]);
+        }
+      });
+      
+      // Add file fields
+      if (profileData.profileImage) body.append('profileImage', profileData.profileImage);
+      if (profileData.cv) body.append('cv', profileData.cv);
+      
+      // Don't set Content-Type header - browser will set it with boundary
+      options.headers = getAuthHeaders();
+      delete options.headers['Content-Type'];
+    } else {
+      // JSON request
+      body = JSON.stringify(profileData);
+      options.headers = getAuthHeaders();
+    }
+    
+    options.body = body;
+    
+    return await safeFetch(`${API_URL}/auth/profile`, options);
   }
 };
 
-// Personal statement API calls
-export const personalStatement = {
-  // Get personal statement data
-  getPersonalStatement: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/personal-statement`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+// Dashboard API
+export const dashboard = {
+  // Get user dashboard data
+  getDashboard: async () => {
+    return await safeFetch(`${API_URL}/dashboard`, {
+      method: 'GET'
     });
-    
-    return handleResponse(response);
   },
   
-  // Save initial personal statement data
-  savePersonalStatementData: async (data) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/personal-statement`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data)
+  // Renamed to match what's used in Dashboard.jsx
+  getDashboardData: async () => {
+    return await safeFetch(`${API_URL}/dashboard`, {
+      method: 'GET'
     });
-    
-    return handleResponse(response);
   },
   
-  // Generate thesis statements
-  generateThesisStatements: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/personal-statement/generate-thesis`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+  // Check if application is ready to submit
+  checkApplicationReadiness: async () => {
+    return await safeFetch(`${API_URL}/dashboard/check-readiness`, {
+      method: 'GET'
     });
-    
-    return handleResponse(response);
   },
   
-  // Save selected thesis statement
-  saveSelectedThesis: async (thesisData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/personal-statement/select-thesis`, {
+  // Update dashboard section progress
+  updateSectionProgress: async (sectionName, isComplete) => {
+    return await safeFetch(`${API_URL}/dashboard/${sectionName}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(thesisData)
+      body: JSON.stringify({ isComplete }),
+      headers: { 'Content-Type': 'application/json' }
     });
-    
-    return handleResponse(response);
   },
   
-  // Generate final statement
-  generateFinalStatement: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/personal-statement/generate-final`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+  // Update dashboard data (keep for backward compatibility)
+  updateSection: async (sectionName, data) => {
+    return await safeFetch(`${API_URL}/dashboard/${sectionName}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
     });
-    
-    return handleResponse(response);
   }
 };
 
-// Experiences API calls
+// Personal Statement API
+export const personalStatement = {
+  // Get user's personal statement
+  get: async () => {
+    return await safeFetch(`${API_URL}/personal-statement`, {
+      method: 'GET'
+    });
+  },
+  
+  // Create or update personal statement
+  save: async (data) => {
+    return await safeFetch(`${API_URL}/personal-statement`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  },
+  
+  // Generate statement with AI
+  generate: async (prompt) => {
+    return await safeFetch(`${API_URL}/personal-statement/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
+
+// Research Products API
+export const research = {
+  // Get all research products
+  getAll: async () => {
+    return await safeFetch(`${API_URL}/research`, {
+      method: 'GET'
+    });
+  },
+  
+  // Get single research product
+  get: async (id) => {
+    return await safeFetch(`${API_URL}/research/${id}`, {
+      method: 'GET'
+    });
+  },
+  
+  // Create new research product
+  create: async (data) => {
+    return await safeFetch(`${API_URL}/research`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  },
+  
+  // Update research product
+  update: async (id, data) => {
+    return await safeFetch(`${API_URL}/research/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  },
+  
+  // Delete research product
+  delete: async (id) => {
+    return await safeFetch(`${API_URL}/research/${id}`, {
+      method: 'DELETE'
+    });
+  }
+};
+
+// Experiences API
 export const experiences = {
   // Get all experiences
-  getExperiences: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/experiences`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+  getAll: async () => {
+    return await safeFetch(`${API_URL}/experiences`, {
+      method: 'GET'
     });
-    
-    return handleResponse(response);
   },
   
-  // Create a new experience
-  createExperience: async (experienceData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/experiences`, {
+  // Get single experience
+  get: async (id) => {
+    return await safeFetch(`${API_URL}/experiences/${id}`, {
+      method: 'GET'
+    });
+  },
+  
+  // Create new experience
+  create: async (data) => {
+    return await safeFetch(`${API_URL}/experiences`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(experienceData)
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
     });
-    
-    return handleResponse(response);
   },
   
-  // Update an experience
-  updateExperience: async (id, experienceData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/experiences/${id}`, {
+  // Update experience
+  update: async (id, data) => {
+    return await safeFetch(`${API_URL}/experiences/${id}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(experienceData)
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
     });
-    
-    return handleResponse(response);
   },
   
-  // Delete an experience
-  deleteExperience: async (id) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/experiences/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+  // Delete experience
+  delete: async (id) => {
+    return await safeFetch(`${API_URL}/experiences/${id}`, {
+      method: 'DELETE'
     });
-    
-    return handleResponse(response);
+  },
+  
+  // Mark experience as most meaningful
+  markMostMeaningful: async (id) => {
+    return await safeFetch(`${API_URL}/experiences/${id}/most-meaningful`, {
+      method: 'PUT'
+    });
   }
 };
 
-// Research API calls
-export const research = {
-  // Get all research entries
-  getResearch: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/research`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    return handleResponse(response);
-  },
-  
-  // Create a new research entry
-  createResearch: async (researchData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/research`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(researchData)
-    });
-    
-    return handleResponse(response);
-  },
-  
-  // Update a research entry
-  updateResearch: async (id, researchData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/research/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(researchData)
-    });
-    
-    return handleResponse(response);
-  },
-  
-  // Delete a research entry
-  deleteResearch: async (id) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/research/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    return handleResponse(response);
-  }
-};
-
-// Programs API calls
+// Programs API
 export const programs = {
-  // Get all programs
-  getAllPrograms: async () => {
-    const response = await fetch(`${API_URL}/programs`);
-    return handleResponse(response);
-  },
-  
-  // Search programs
-  searchPrograms: async (searchParams) => {
-    const queryParams = new URLSearchParams(searchParams).toString();
-    const response = await fetch(`${API_URL}/programs/search?${queryParams}`);
-    return handleResponse(response);
-  },
-  
-  // Get program details
-  getProgramById: async (id) => {
-    const response = await fetch(`${API_URL}/programs/${id}`);
-    return handleResponse(response);
-  },
-  
-  // Get user's program preferences
-  getUserPreferences: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/programs/preferences`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+  // Search for programs
+  search: async (params) => {
+    const queryString = new URLSearchParams(params).toString();
+    return await safeFetch(`${API_URL}/programs/search?${queryString}`, {
+      method: 'GET'
     });
-    
-    return handleResponse(response);
   },
   
-  // Save program preference
-  savePreference: async (preferenceData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/programs/preferences`, {
+  // Get single program
+  get: async (id) => {
+    return await safeFetch(`${API_URL}/programs/${id}`, {
+      method: 'GET'
+    });
+  },
+  
+  // Save program to favorites
+  saveToFavorites: async (id) => {
+    return await safeFetch(`${API_URL}/programs/${id}/favorite`, {
+      method: 'PUT'
+    });
+  },
+  
+  // Remove program from favorites
+  removeFromFavorites: async (id) => {
+    return await safeFetch(`${API_URL}/programs/${id}/favorite`, {
+      method: 'DELETE'
+    });
+  },
+  
+  // Get favorite programs
+  getFavorites: async () => {
+    return await safeFetch(`${API_URL}/programs/favorites`, {
+      method: 'GET'
+    });
+  }
+};
+
+// Miscellaneous Questions API
+export const miscQuestions = {
+  // Get all user's misc questions
+  getAll: async () => {
+    return await safeFetch(`${API_URL}/misc-questions`, {
+      method: 'GET'
+    });
+  },
+  
+  // Save misc questions
+  save: async (data) => {
+    return await safeFetch(`${API_URL}/misc-questions`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(preferenceData)
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
     });
-    
-    return handleResponse(response);
   },
   
-  // Update program preference
-  updatePreference: async (id, preferenceData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/programs/preferences/${id}`, {
+  // Generate answer with AI
+  generateAnswer: async (questionId, prompt) => {
+    return await safeFetch(`${API_URL}/misc-questions/${questionId}/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
+
+// Applications API
+export const applications = {
+  // Get all applications
+  getAll: async () => {
+    return await safeFetch(`${API_URL}/applications`, {
+      method: 'GET'
+    });
+  },
+  
+  // Get single application
+  get: async (id) => {
+    return await safeFetch(`${API_URL}/applications/${id}`, {
+      method: 'GET'
+    });
+  },
+  
+  // Create new application
+  create: async (data) => {
+    return await safeFetch(`${API_URL}/applications`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  },
+  
+  // Update application
+  update: async (id, data) => {
+    return await safeFetch(`${API_URL}/applications/${id}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(preferenceData)
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
     });
-    
-    return handleResponse(response);
   },
   
-  // Remove a program preference
-  removePreference: async (id) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/programs/preferences/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+  // Delete application
+  delete: async (id) => {
+    return await safeFetch(`${API_URL}/applications/${id}`, {
+      method: 'DELETE'
     });
-    
-    return handleResponse(response);
-  }
-};
-
-// Miscellaneous questions API calls
-export const misc = {
-  // Get miscellaneous information
-  getMiscInfo: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/misc`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    return handleResponse(response);
   },
   
-  // Update miscellaneous information
-  updateMiscInfo: async (miscData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/misc`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(miscData)
+  // Submit application
+  submit: async (id) => {
+    return await safeFetch(`${API_URL}/applications/${id}/submit`, {
+      method: 'PUT'
     });
-    
-    return handleResponse(response);
   },
   
-  // Submit answers to questions
-  submitQuestions: async (questionsData) => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/misc/questions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(questionsData)
+  // Get application status
+  getStatus: async (id) => {
+    return await safeFetch(`${API_URL}/applications/${id}/status`, {
+      method: 'GET'
     });
-    
-    return handleResponse(response);
-  },
-  
-  // Get question responses
-  getQuestionResponses: async () => {
-    const token = getAuthToken();
-    
-    if (!token) throw new Error('Authentication required');
-    
-    const response = await fetch(`${API_URL}/misc/questions`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    return handleResponse(response);
-  }
-};
-
-// Dashboard API calls - updated to use LocalDB
-export const dashboard = {
-  // Get dashboard data
-  getDashboardData: async () => {
-    try {
-      // Initialize LocalDB if needed
-      LocalDB.init();
-      
-      // Get user and dashboard data
-      const user = LocalDB.getUser();
-      const dashboardData = LocalDB.getDashboard();
-      
-      // Calculate progress if not already calculated
-      if (!dashboardData.progress) {
-        let completedSections = 0;
-        const totalSections = Object.keys(dashboardData.sections).length;
-        
-        Object.values(dashboardData.sections).forEach(section => {
-          if (section.isComplete) completedSections++;
-        });
-        
-        const percentageComplete = Math.round((completedSections / totalSections) * 100);
-        
-        dashboardData.progress = {
-          completedSections,
-          totalSections,
-          percentageComplete
-        };
-        
-        // Save the calculated progress
-        LocalDB.updateDashboard(dashboardData);
-      }
-      
-      // Return formatted response
-      return {
-        success: true,
-        dashboard: {
-          user,
-          sections: dashboardData.sections,
-          progress: dashboardData.progress
-        }
-      };
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      return {
-        success: false,
-        message: 'Failed to load dashboard data'
-      };
-    }
-  },
-  
-  // Check if application is ready for program recommendations
-  checkApplicationReadiness: async () => {
-    try {
-      const dashboardData = LocalDB.getDashboard();
-      let percentageComplete = 0;
-      
-      if (dashboardData && dashboardData.progress) {
-        percentageComplete = dashboardData.progress.percentageComplete;
-      } else {
-        // Calculate if not available
-        const response = await dashboard.getDashboardData();
-        if (response.success) {
-          percentageComplete = response.dashboard.progress.percentageComplete;
-        }
-      }
-      
-      // Application is ready if completion is at least 85%
-      return {
-        success: true,
-        isReady: percentageComplete >= 85,
-        percentageComplete
-      };
-    } catch (error) {
-      console.error('Error checking application readiness:', error);
-      return {
-        success: false,
-        message: 'Failed to check application readiness'
-      };
-    }
-  },
-  
-  // Update section progress - uses LocalDB
-  updateSectionProgress: async (sectionName, isComplete) => {
-    try {
-      // Update the section
-      const updatedSection = {
-        isComplete,
-        status: isComplete ? 'Completed' : (isComplete === false ? 'In Progress' : 'Not Started')
-      };
-      
-      LocalDB.updateSection(sectionName, updatedSection);
-      
-      // Return full dashboard data
-      return await dashboard.getDashboardData();
-    } catch (error) {
-      console.error('Error updating section progress:', error);
-      throw error;
-    }
   }
 }; 

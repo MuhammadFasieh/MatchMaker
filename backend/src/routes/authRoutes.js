@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const authenticate = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const { uploadFields } = require('../middleware/upload');
 
 // Register new user
@@ -16,10 +16,13 @@ router.post('/register',
 // Login user
 router.post('/login', authController.login);
 
+// Logout user
+router.get('/logout', authController.logout);
+
 // Protected routes (require authentication)
-router.get('/profile', authenticate.protect, authController.getProfile);
-router.put('/profile', authenticate.protect, authController.updateProfile);
-router.post('/upload-profile-image', authenticate.protect, uploadFields([{ name: 'profileImage', maxCount: 1 }]), (req, res) => authController.uploadProfileImage(req, res));
-router.post('/upload-cv', authenticate.protect, uploadFields([{ name: 'cv', maxCount: 1 }]), (req, res) => authController.uploadCV(req, res));
+router.get('/profile', protect, authController.getProfile);
+router.put('/profile', protect, authController.updateProfile);
+router.post('/upload-profile-image', protect, uploadFields([{ name: 'profileImage', maxCount: 1 }]), (req, res) => authController.uploadProfileImage(req, res));
+router.post('/upload-cv', protect, uploadFields([{ name: 'cv', maxCount: 1 }]), (req, res) => authController.uploadCV(req, res));
 
 module.exports = router; 

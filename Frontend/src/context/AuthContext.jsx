@@ -1,19 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { auth } from '../services/api';
 
-// Mock user data (fallback if nothing in localStorage)
-const MOCK_USER = {
-  id: 'mock-user-123',
-  firstName: 'Demo',
-  lastName: 'User',
-  email: 'user@example.com',
-  phone: '+1 (555) 123-4567',
-  university: 'Johns Hopkins University School of Medicine',
-  specialty: 'Cardiology',
-  graduationYear: '2023',
-  profileImage: null
-};
-
 // Create the context
 const AuthContext = createContext();
 
@@ -26,49 +13,38 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Initialize user state from localStorage when the app loads
+  // Initialize user state from JWT token only
   useEffect(() => {
     const initializeAuth = async () => {
       setLoading(true);
       try {
-        // First check if we have a token
+        // Check if we have a token
         const token = localStorage.getItem('token');
         
         if (token) {
-          // Try to get stored user data
-          const storedUser = localStorage.getItem('user');
-          
-          if (storedUser) {
-            // If we have stored user data, use it
-            setCurrentUser(JSON.parse(storedUser));
-          } else {
-            // If no stored user but we have a token, try to fetch user data
-            try {
-              const response = await auth.getProfile();
-              if (response && response.success) {
-                setCurrentUser(response.user);
-                localStorage.setItem('user', JSON.stringify(response.user));
-              } else {
-                // If API fails, just use an empty object, no mock data
-                setCurrentUser({});
-                localStorage.setItem('user', JSON.stringify({}));
-              }
-            } catch (err) {
-              console.error("Error fetching user profile:", err);
-              // If fetching fails, just use an empty object
-              setCurrentUser({});
-              localStorage.setItem('user', JSON.stringify({}));
+          try {
+            // Fetch user data from backend
+            const response = await auth.getProfile();
+            if (response && response.success) {
+              setCurrentUser(response.user);
+            } else {
+              // Token is invalid or expired
+              localStorage.removeItem('token');
+              setCurrentUser(null);
             }
+          } catch (err) {
+            console.error("Error fetching user profile:", err);
+            // If fetching fails, clear token and set user to null
+            localStorage.removeItem('token');
+            setCurrentUser(null);
           }
         } else {
-          // For demo purposes, create a token but no default user data
-          localStorage.setItem('token', 'fake-jwt-token');
-          // Don't set any mock user data by default
           setCurrentUser(null);
         }
       } catch (err) {
         console.error("Auth initialization error:", err);
         setError("Failed to initialize authentication");
+        setCurrentUser(null);
       } finally {
         setLoading(false);
       }
@@ -83,21 +59,13 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      // Create a user object with provided data
-      const userToRegister = {
-        ...MOCK_USER,
-        ...userData,
-        id: `user-${Date.now()}`, // Generate a unique ID
-        firstName: userData.firstName || MOCK_USER.firstName,
-        lastName: userData.lastName || MOCK_USER.lastName,
-        email: userData.email || MOCK_USER.email
-      };
+      // Send registration data to backend
+      const response = await auth.register(userData);
       
-      const response = await auth.register(userToRegister);
-      
-      // Save token and user data
+      // Save only the token, not user data
       localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      
+      // Set user from response
       setCurrentUser(response.user);
       
       return response;
@@ -112,51 +80,78 @@ export const AuthProvider = ({ children }) => {
   // Handle user login
   const login = async (credentials) => {
     try {
+      console.log(`Attempting login with email: ${credentials.email}`);
       setLoading(true);
       setError(null);
       
-      // Customize the mock user with the email from credentials
-      const customUser = {
-        ...MOCK_USER,
-        email: credentials.email || MOCK_USER.email,
-        firstName: credentials.email.split('@')[0] || MOCK_USER.firstName
-      };
+      // Extract email and password from credentials
+      const email = credentials.email;
+      const password = credentials.password;
       
-      // For demo, modify the API call to use our custom user
-      auth.MOCK_USER = customUser;
+      // Make sure both email and password are provided
+      if (!email || !password) {
+        throw new Error('Please provide an email and password');
+      }
       
-      const response = await auth.login(credentials);
-      
-      // Save token and user data
+      // Call the login API with email and password
+      const response = await auth.login({
+        email,
+        password
+      });
+
+      console.log('Login API response:', response);
+
+      // The server returns a token directly in the response
+      if (!response || !response.token) {
+        console.error('No token received from login API');
+        throw new Error('Authentication token not received');
+      }
+
+      // Store token in local storage
       localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      setCurrentUser(response.user);
-      
-      return response;
-    } catch (err) {
-      setError(err.message || 'Login failed');
-      throw err;
-    } finally {
+      console.log('Token stored in localStorage');
+
+      // Set user from response
+      if (response.user) {
+        setCurrentUser(response.user);
+        console.log('User set from login response');
+      } else {
+        // If no user in response, fetch profile
+        try {
+          const profileResponse = await auth.getProfile();
+          if (profileResponse && profileResponse.success && profileResponse.user) {
+            setCurrentUser(profileResponse.user);
+            console.log('User set from profile fetch');
+          }
+        } catch (profileError) {
+          console.warn('Could not fetch user profile:', profileError);
+        }
+      }
+
       setLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Login error:', error.message || error);
+      setLoading(false);
+      setError(error.message || 'An error occurred during login');
+      return false;
     }
   };
 
   // Handle user logout
-  const logout = () => {
-    // Remove token and user data from local storage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    // Reset current user state to null
-    setCurrentUser(null);
-    
-    // Set loading state for UI feedback
-    setLoading(true);
-    
-    // Wait a bit to simulate logout process
-    setTimeout(() => {
-      setLoading(false);
-    }, 500);
+  const logout = async () => {
+    try {
+      // Call logout endpoint if server needs to invalidate token
+      await auth.logout();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      // Remove token from local storage
+      localStorage.removeItem('token');
+      
+      // Reset current user state to null
+      setCurrentUser(null);
+    }
   };
 
   // Update user profile
@@ -167,9 +162,8 @@ export const AuthProvider = ({ children }) => {
       
       const response = await auth.updateProfile(profileData);
       
-      // Update current user data and localStorage
+      // Update current user data
       setCurrentUser(response.user);
-      localStorage.setItem('user', JSON.stringify(response.user));
       
       return response;
     } catch (err) {

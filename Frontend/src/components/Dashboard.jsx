@@ -29,20 +29,20 @@ export default function Dashboard() {
     try {
       setLoading(true);
       
-      // Fetch user profile
-      const userResponse = await auth.getProfile();
-      if (userResponse && userResponse.success) {
-        setUserData(userResponse.user);
-      }
-      
       // Fetch dashboard data
       const dashResponse = await dashboard.getDashboardData();
+      console.log("Raw dashboard response:", dashResponse);
+      
       if (dashResponse && dashResponse.success && dashResponse.dashboard) {
         const { progress, sections, user } = dashResponse.dashboard;
+        console.log("Dashboard data fetched successfully:", dashResponse.dashboard);
+        console.log("User data from dashboard API:", user);
         
-        // If we got user data from dashboard API but not from auth API, update userData
-        if (user && (!userResponse || !userResponse.success)) {
+        // Set user data directly from the dashboard API 
+        if (user) {
+          // Important: Set the userData state with the user object from dashboard
           setUserData(user);
+          console.log("Set userData state with:", user);
         }
         
         // Map backend data to frontend format
@@ -50,7 +50,7 @@ export default function Dashboard() {
           completedSections: progress.completedSections || 0,
           totalSections: progress.totalSections || 5,
           percentage: progress.percentageComplete || 0,
-          dashboardUser: user,
+          dashboardUser: user, // Also set the dashboardUser property
           sectionStatus: {
             personalStatement: { 
               status: sections.personalStatement.status, 
@@ -70,17 +70,85 @@ export default function Dashboard() {
           }
         });
         
+        // If we don't have user data yet, try to fetch from profile
+        if (!user) {
+          try {
+            // Fetch user profile as a fallback
+            const userResponse = await auth.getProfile();
+            if (userResponse && userResponse.success) {
+              setUserData(userResponse.user);
+              console.log("User data fetched from profile API:", userResponse.user);
+            }
+          } catch (profileErr) {
+            console.warn("Could not fetch user profile:", profileErr);
+          }
+        }
+        
         // Check if application is ready
-        const readinessResponse = await dashboard.checkApplicationReadiness();
-        if (readinessResponse && readinessResponse.success) {
-          setIsApplicationReady(readinessResponse.isReady);
+        try {
+          const readinessResponse = await dashboard.checkApplicationReadiness();
+          if (readinessResponse && readinessResponse.success) {
+            setIsApplicationReady(readinessResponse.isReady);
+          }
+        } catch (readinessErr) {
+          console.error("Error checking application readiness:", readinessErr);
+          // Continue even if readiness check fails
         }
       } else {
-        setError("Failed to load dashboard data");
+        // If API fails, use fallback data
+        setError("Failed to load dashboard data: " + (dashResponse?.message || "Unknown error"));
+        
+        // Use fallback data if no response
+        setProgressData({
+          completedSections: 0,
+          totalSections: 5,
+          percentage: 0,
+          sectionStatus: {
+            personalStatement: { 
+              status: 'Not Started', 
+              icon: getIconForStatus('Not Started'), 
+              color: getColorForStatus('Not Started') 
+            },
+            research: { 
+              status: 'Not Started', 
+              icon: getIconForStatus('Not Started'), 
+              color: getColorForStatus('Not Started') 
+            },
+            experiences: { 
+              status: 'Not Started', 
+              icon: getIconForStatus('Not Started'), 
+              color: getColorForStatus('Not Started') 
+            }
+          }
+        });
       }
     } catch (err) {
       console.error("Error fetching data:", err);
-      setError("Failed to load user data");
+      setError("Failed to load dashboard data");
+      
+      // Fallback data
+      setProgressData({
+        completedSections: 0,
+        totalSections: 5,
+        percentage: 0,
+        sectionStatus: {
+          personalStatement: { 
+            status: 'Not Started', 
+            icon: getIconForStatus('Not Started'), 
+            color: getColorForStatus('Not Started') 
+          },
+          research: { 
+            status: 'Not Started', 
+            icon: getIconForStatus('Not Started'), 
+            color: getColorForStatus('Not Started') 
+          },
+          experiences: { 
+            status: 'Not Started', 
+            icon: getIconForStatus('Not Started'), 
+            color: getColorForStatus('Not Started') 
+          }
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -253,6 +321,33 @@ export default function Dashboard() {
 
   // Function to safely display user data with fallbacks
   const displayUserData = (field, fallback = '') => {
+    console.log(`Displaying ${field}:`, {
+      progressData: progressData?.dashboardUser?.[field],
+      userData: userData?.[field],
+      currentUser: currentUser?.[field]
+    });
+    
+    // Special case for name field
+    if (field === 'name') {
+      // Try from dashboard user data first (from API response)
+      if (progressData?.dashboardUser?.name) {
+        return progressData.dashboardUser.name;
+      }
+      
+      // Then try from fetched userData
+      if (userData?.name) {
+        return userData.name;
+      }
+      
+      // Then try from currentUser context
+      if (currentUser?.name) {
+        return currentUser.name;
+      }
+      
+      // If no name found, return the fallback
+      return fallback || 'Dr.';
+    }
+    
     // Try from dashboard user data first (from API response)
     if (progressData && progressData.dashboardUser) {
       if (progressData.dashboardUser[field] !== undefined && progressData.dashboardUser[field] !== null) {
@@ -276,9 +371,22 @@ export default function Dashboard() {
 
   // For debug: Show all available user data
   const showAllUserData = () => {
-    console.log('Dashboard User:', progressData.dashboardUser);
+    console.log('Dashboard User:', progressData?.dashboardUser);
     console.log('User Data:', userData);
     console.log('Current User:', currentUser);
+    
+    // Show raw values for first and last name specifically
+    console.log('First Name Values:', {
+      progressData: progressData?.dashboardUser?.firstName,
+      userData: userData?.firstName,
+      currentUser: currentUser?.firstName
+    });
+    
+    console.log('Last Name Values:', {
+      progressData: progressData?.dashboardUser?.lastName,
+      userData: userData?.lastName,
+      currentUser: currentUser?.lastName
+    });
     
     setUpdateMessage({
       type: 'info',
@@ -319,6 +427,15 @@ export default function Dashboard() {
 
   // Function to check if a field actually has data
   const hasUserData = (field) => {
+    // Special case for name field
+    if (field === 'name') {
+      return !!(
+        (progressData?.dashboardUser?.name) ||
+        (userData?.name) ||
+        (currentUser?.name)
+      );
+    }
+    
     return (
       (progressData && progressData.dashboardUser && 
         progressData.dashboardUser[field] !== undefined && 
@@ -448,14 +565,16 @@ export default function Dashboard() {
           <div className="rounded-lg overflow-hidden mb-4 sm:mb-0 sm:mr-6">
             <img 
               src={displayUserData('profileImage', dashborad)}
-              alt={`${displayUserData('firstName')} ${displayUserData('lastName')}`} 
+              alt={`${displayUserData('name')}`} 
               className="h-44 w-44 object-cover rounded-lg"
             />
           </div>
           <div className="space-y-2 text-center sm:text-left">
             <h1 className="text-3xl font-medium text-[#2d6a8e]">
-              {hasUserData('firstName') ? `Dr. ${displayUserData('firstName')}` : 'Dr.'} {displayUserData('lastName')}
+              {displayUserData('name', 'Dr.')}
             </h1>
+            
+            
             
             {hasUserData('email') && (
               <p className="text-gray-700">

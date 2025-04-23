@@ -6,6 +6,8 @@ const User = require('../models/User');
 // Protect routes
 exports.protect = asyncHandler(async (req, res, next) => {
   let token;
+  
+  console.log("Auth middleware headers:", JSON.stringify(req.headers));
 
   // Get token from authorization header
   if (
@@ -14,6 +16,7 @@ exports.protect = asyncHandler(async (req, res, next) => {
   ) {
     // Set token from Bearer token
     token = req.headers.authorization.split(' ')[1];
+    console.log("Token found in Authorization header:", token ? token.substring(0, 10) + '...' : 'none');
   }
   // Uncomment below if you want to store token in cookie
   // else if (req.cookies.token) {
@@ -22,22 +25,30 @@ exports.protect = asyncHandler(async (req, res, next) => {
 
   // Make sure token exists
   if (!token) {
+    console.error("No token found in request headers");
     return next(new ErrorResponse('Not authorized to access this route', 401));
   }
 
   try {
     // Verify token
+    console.log("JWT_SECRET available:", !!process.env.JWT_SECRET);
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("Token decoded successfully, user ID:", decoded.id);
 
     // Set the user in req.user
-    req.user = await User.findById(decoded.id);
-
-    if (!req.user) {
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      console.error(`User with ID ${decoded.id} not found in database`);
       return next(new ErrorResponse('User not found', 404));
     }
+    
+    console.log(`User authenticated: ${user.firstName} ${user.lastName} (${user.email})`);
+    req.user = user;
 
     next();
   } catch (err) {
+    console.error("Token verification failed:", err.message);
     return next(new ErrorResponse('Not authorized to access this route', 401));
   }
 });

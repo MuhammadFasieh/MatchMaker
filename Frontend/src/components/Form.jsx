@@ -37,22 +37,10 @@ const Form = () => {
       setIsLoading(true);
       setError('');
       
-      // Create a custom user based on the email
-      const customUserData = {
-        email: email,
-        // Only extract firstName if there's an @ in the email
-        ...(email.includes('@') ? {
-          firstName: email.split('@')[0].charAt(0).toUpperCase() + 
-                    email.split('@')[0].slice(1)
-        } : {})
-        // Don't add any other fields to respect empty data requirements
-      };
-      
-      // Call login with credentials and the custom user data
+      // Only pass the email and password to the login function
       await login({ 
         email, 
-        password,
-        customUserData 
+        password
       });
       
       // Set success message
