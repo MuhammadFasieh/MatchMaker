@@ -10,7 +10,7 @@ router.post('/register',
     { name: 'profileImage', maxCount: 1 },
     { name: 'cv', maxCount: 1 }
   ]), 
-  (req, res) => authController.register(req, res)
+  (req, res, next) => authController.register(req, res, next)
 );
 
 // Login user
@@ -22,7 +22,7 @@ router.get('/logout', authController.logout);
 // Protected routes (require authentication)
 router.get('/profile', protect, authController.getProfile);
 router.put('/profile', protect, authController.updateProfile);
-router.post('/upload-profile-image', protect, uploadFields([{ name: 'profileImage', maxCount: 1 }]), (req, res) => authController.uploadProfileImage(req, res));
-router.post('/upload-cv', protect, uploadFields([{ name: 'cv', maxCount: 1 }]), (req, res) => authController.uploadCV(req, res));
+router.post('/upload-profile-image', protect, uploadFields([{ name: 'profileImage', maxCount: 1 }]), (req, res, next) => authController.uploadProfileImage(req, res, next));
+router.post('/upload-cv', protect, uploadFields([{ name: 'cv', maxCount: 1 }]), (req, res, next) => authController.uploadCV(req, res, next));
 
 module.exports = router; 

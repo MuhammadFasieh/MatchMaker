@@ -18,6 +18,13 @@ const UserSchema = new mongoose.Schema(
         'Please add a valid email'
       ]
     },
+    phoneNumber: {
+      type: String,
+      match: [
+        /^(\+\d{1,3})?\s?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/,
+        'Please add a valid phone number'
+      ]
+    },
     role: {
       type: String,
       enum: ['user', 'applicant', 'publisher', 'admin', 'program-manager'],

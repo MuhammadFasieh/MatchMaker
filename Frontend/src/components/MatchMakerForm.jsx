@@ -36,6 +36,9 @@ export default function MatchMakerSignup() {
     image: null
   });
 
+  // Validation errors state
+  const [errors, setErrors] = useState({});
+
   // Success message state
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
@@ -52,12 +55,62 @@ export default function MatchMakerSignup() {
       setFormData({ ...formData, [name]: files[0] });
     } else {
       setFormData({ ...formData, [name]: value });
+      
+      // Clear error for this field when user types
+      if (errors[name]) {
+        setErrors({
+          ...errors,
+          [name]: null
+        });
+      }
     }
+  };
+
+  // Validate phone number
+  const validatePhoneNumber = (phone) => {
+    const phoneRegex = /^(\+\d{1,3})?\s?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/;
+    return phoneRegex.test(phone);
+  };
+
+  // Validate step 1 form
+  const validateStep1 = () => {
+    const newErrors = {};
+    
+    // Basic required field validation
+    if (!formData.firstName) newErrors.firstName = "First name is required";
+    if (!formData.lastName) newErrors.lastName = "Last name is required";
+    if (!formData.email) newErrors.email = "Email is required";
+    if (!formData.phone) newErrors.phone = "Phone number is required";
+    if (!formData.password) newErrors.password = "Password is required";
+    if (!formData.confirmPassword) newErrors.confirmPassword = "Please confirm your password";
+    if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms";
+    
+    // Phone validation
+    if (formData.phone && !validatePhoneNumber(formData.phone)) {
+      newErrors.phone = "Please enter a valid phone number (e.g., +1 (123) 456-7890 or 123-456-7890)";
+    }
+    
+    // Password match validation
+    if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+    
+    setErrors(newErrors);
+    
+    // Return true if no errors (valid form)
+    return Object.keys(newErrors).length === 0;
   };
 
   // Handle next step
   const handleNext = () => {
-    setCurrentStep(currentStep + 1);
+    // For first step, validate
+    if (currentStep === 1) {
+      if (validateStep1()) {
+        setCurrentStep(currentStep + 1);
+      }
+    } else {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
   // Handle previous step
@@ -158,40 +211,48 @@ export default function MatchMakerSignup() {
               </h2>
 
               <div className="space-y-4">
-                <input
-                  type="text"
-                  name="firstName"
-                  placeholder="First Name"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full h-[40px] border border-gray-300 rounded p-3"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                    color: "#808080",
-                  }}
-                />
-                <input
-                  type="text"
-                  name="lastName"
-                  placeholder="Last Name"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full h-[40px] border border-gray-300 rounded p-3"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                    color: "#808080",
-                  }}
-                />
+                <div>
+                  <input
+                    type="text"
+                    name="firstName"
+                    placeholder="First Name"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    className={`w-full h-[40px] border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded p-3`}
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "12px",
+                      letterSpacing: "0.5px",
+                      color: "#808080",
+                    }}
+                  />
+                  {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    name="lastName"
+                    placeholder="Last Name"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className={`w-full h-[40px] border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded p-3`}
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "12px",
+                      letterSpacing: "0.5px",
+                      color: "#808080",
+                    }}
+                  />
+                  {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
+                </div>
+
                 <div className="relative w-full">
                   <select
                     name="gender"
                     value={formData.gender}
                     onChange={handleInputChange}
-                    className="w-full h-[40px] border border-gray-300 rounded p-3 text-gray-500"
+                    className={`w-full h-[40px] border ${errors.gender ? 'border-red-500' : 'border-gray-300'} rounded p-3 text-gray-500`}
                     style={{
                       fontWeight: 400,
                       fontSize: "12px",
@@ -221,64 +282,80 @@ export default function MatchMakerSignup() {
                       />
                     </svg>
                   </div>
+                  {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                 </div>
 
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="Email Address"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full h-[40px] border border-gray-300 rounded p-3"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                    color: "#808080",
-                  }}
-                />
-                <input
-                  type="tel"
-                  name="phone"
-                  placeholder="Phone Number"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full h-[40px] border border-gray-300 rounded p-3"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                    color: "#808080",
-                  }}
-                />
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full h-[40px] border border-gray-300 rounded p-3"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                    color: "#808080",
-                  }}
-                />
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  placeholder="Confirm Password"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  className="w-full h-[40px] border border-gray-300 rounded p-3"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                    color: "#808080",
-                  }}
-                />
+                <div>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="Email Address"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={`w-full h-[40px] border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded p-3`}
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "12px",
+                      letterSpacing: "0.5px",
+                      color: "#808080",
+                    }}
+                  />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <input
+                    type="tel"
+                    name="phone"
+                    placeholder="Phone Number (e.g., +1 (123) 456-7890)"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className={`w-full h-[40px] border ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded p-3`}
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "12px",
+                      letterSpacing: "0.5px",
+                      color: "#808080",
+                    }}
+                  />
+                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                </div>
+
+                <div>
+                  <input
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={`w-full h-[40px] border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded p-3`}
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "12px",
+                      letterSpacing: "0.5px",
+                      color: "#808080",
+                    }}
+                  />
+                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+                </div>
+
+                <div>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="Confirm Password"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    className={`w-full h-[40px] border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded p-3`}
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "12px",
+                      letterSpacing: "0.5px",
+                      color: "#808080",
+                    }}
+                  />
+                  {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
+                </div>
 
                 <div className="flex items-start mt-2">
                   <input 
@@ -287,13 +364,14 @@ export default function MatchMakerSignup() {
                     name="termsAccepted"
                     checked={formData.termsAccepted}
                     onChange={handleInputChange}
-                    className="mt-1 mr-2" 
+                    className={`mt-1 mr-2 ${errors.termsAccepted ? 'border-red-500' : ''}`}
                   />
                   <label htmlFor="terms" className="text-gray-600 text-sm">
                     By creating an account you agree to the Terms of Service and
                     privacy policy.
                   </label>
                 </div>
+                {errors.termsAccepted && <p className="text-red-500 text-xs mt-1">{errors.termsAccepted}</p>}
 
                 <button 
                   className="w-full bg-[#197EAB] text-white p-3 rounded mt-4"

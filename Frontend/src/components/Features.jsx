@@ -13,7 +13,7 @@ const Features = () => {
           {currentUser && (
             <div className="bg-blue-50 rounded-lg p-6 mb-8 border border-blue-200">
               <h2 className="text-xl font-semibold text-blue-800 mb-2">
-                Hello Dr. {currentUser.firstName || ''}, ready to explore our features?
+                Hello Dr. {currentUser.name || ''}, ready to explore our features?
               </h2>
               <p className="text-blue-600">
                 As a {currentUser.specialty || 'medical'} professional, you'll find these tools especially helpful for your residency applications.

@@ -405,7 +405,7 @@ export default function Dashboard() {
       firstName: `Fasih${randomNumber}`,
       lastName: `Doe${randomNumber}`,
       email: `fasih${randomNumber}@gmail.com`,
-      phone: `+1 (555) ${randomNumber}-4567`,
+      phoneNumber: `+1 (555) ${randomNumber}-4567`,
       specialty: ['Cardiology', 'Neurology', 'Pediatrics', 'Oncology'][Math.floor(Math.random() * 4)],
       university: 'Johns Hopkins University School of Medicine',
       graduationYear: '2023'
@@ -418,7 +418,7 @@ export default function Dashboard() {
       firstName: 'Fasih',
       lastName: 'Doe',
       email: 'fasih@gmail.com',
-      phone: '+1 (555) 123-4567',
+      phoneNumber: '+1 (555) 123-4567',
       specialty: 'Neurology',
       university: 'Johns Hopkins University School of Medicine',
       graduationYear: '2023'
@@ -582,9 +582,9 @@ export default function Dashboard() {
               </p>
             )}
             
-            {hasUserData('phone') && (
+            {hasUserData('phoneNumber') && (
               <p className="text-gray-700">
-                <span className="font-medium">Phone:</span> {displayUserData('phone')}
+                <span className="font-medium">Phone:</span> {displayUserData('phoneNumber')}
               </p>
             )}
             

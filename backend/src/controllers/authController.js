@@ -30,7 +30,10 @@ exports.register = asyncHandler(async (req, res, next) => {
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
-    return next(new ErrorResponse('Email already registered', 400));
+    return res.status(400).json({
+      success: false,
+      error: 'Email already registered'
+    });
   }
 
   // Handle file uploads if present

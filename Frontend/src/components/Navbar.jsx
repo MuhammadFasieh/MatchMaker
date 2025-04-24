@@ -132,7 +132,7 @@ const Navbar = () => {
               {currentUser ? (
                 <>
                   <span className="mr-3 text-gray-700 hidden sm:inline-block">
-                    Hello, Dr. {currentUser.firstName || ''}
+                    Hello, Dr. {currentUser.name || ''}
                   </span>
                   <button 
                     onClick={handleLogout}
@@ -240,15 +240,15 @@ const Navbar = () => {
                     {currentUser.profileImage ? (
                       <img 
                         src={currentUser.profileImage} 
-                        alt={`${currentUser.firstName || ''}'s profile`}
+                        alt={`${currentUser.name || ''}'s profile`}
                         className="h-10 w-10 rounded-full"
                       />
                     ) : (
-                      <span>{currentUser.firstName?.charAt(0) || ''}{currentUser.lastName?.charAt(0) || ''}</span>
+                      <span>{currentUser.name?.charAt(0) || ''}{currentUser.lastName?.charAt(0) || ''}</span>
                     )}
                   </div>
                   <div className="ml-3">
-                    <div className="text-base font-medium text-gray-800">Dr. {currentUser.firstName || ''} {currentUser.lastName || ''}</div>
+                    <div className="text-base font-medium text-gray-800">Dr. {currentUser.name || ''} {currentUser.lastName || ''}</div>
                     <div className="text-sm font-medium text-gray-500">{currentUser.email || ''}</div>
                   </div>
                 </div>
