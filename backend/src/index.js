@@ -11,6 +11,8 @@ const userRoutes = require('./routes/users');
 const programRoutes = require('./routes/programs');
 const applicationRoutes = require('./routes/applications');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const openaiRoutes = require('./routes/openaiRoutes');
+const personalStatementRoutes = require('./routes/personalStatementRoutes');
 
 // Initialize express app
 const app = express();
@@ -30,6 +32,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/programs', programRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/openai', openaiRoutes);
+app.use('/api/personal-statement', personalStatementRoutes);
 
 // Root route
 app.get('/', (req, res) => {

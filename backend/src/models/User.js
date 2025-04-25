@@ -25,6 +25,10 @@ const UserSchema = new mongoose.Schema(
         'Please add a valid phone number'
       ]
     },
+    specialty: {
+      type: String,
+      trim: true
+    },
     role: {
       type: String,
       enum: ['user', 'applicant', 'publisher', 'admin', 'program-manager'],

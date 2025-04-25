@@ -38,6 +38,9 @@ export default function Dashboard() {
         console.log("Dashboard data fetched successfully:", dashResponse.dashboard);
         console.log("User data from dashboard API:", user);
         
+        // CRITICAL FIX: Logging Personal Statement status specifically
+        console.log("PERSONAL STATEMENT STATUS:", sections.personalStatement);
+        
         // Set user data directly from the dashboard API 
         if (user) {
           // Important: Set the userData state with the user object from dashboard
@@ -154,9 +157,68 @@ export default function Dashboard() {
     }
   };
 
-  // Initial data load
+  // Special function to force personal statement completion if needed
+  const forceCheckPersonalStatementStatus = async () => {
+    try {
+      console.log("Performing special personal statement status check");
+      
+      // Check if we think it's already completed in the UI
+      const currentStatus = progressData.sectionStatus.personalStatement.status;
+      console.log("Current personal statement UI status:", currentStatus);
+      
+      if (currentStatus !== 'Completed') {
+        console.log("Personal statement not showing as completed, checking backend status...");
+        
+        // Get the latest status from the backend
+        const dashboardData = await dashboard.getDashboardData();
+        
+        if (dashboardData?.dashboard?.sections?.personalStatement?.isComplete) {
+          console.log("Backend shows personal statement as complete, updating UI...");
+          
+          // Update the local state to match the backend
+          setProgressData(prevData => ({
+            ...prevData,
+            sectionStatus: {
+              ...prevData.sectionStatus,
+              personalStatement: {
+                status: 'Completed',
+                icon: 'check',
+                color: 'green'
+              }
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error checking personal statement status:", error);
+    }
+  };
+  
+  // Initial data load and also refresh when user returns to this page
   useEffect(() => {
-    fetchDashboardData();
+    // Fetch dashboard data when the component mounts or when the user navigates back to it
+    fetchDashboardData().then(() => {
+      // Also force check the personal statement status after data loads
+      forceCheckPersonalStatementStatus();
+    });
+    
+    // Set up a listener for when the user returns to this page via browser navigation
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Dashboard: Page is visible again, refreshing data');
+        fetchDashboardData().then(() => {
+          // Also force check the personal statement status after data loads
+          forceCheckPersonalStatementStatus();
+        });
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Clean up event listener on component unmount
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Update profile data (for demo/testing)
@@ -451,6 +513,36 @@ export default function Dashboard() {
     const sectionKey = sectionToKey(sectionName);
     const section = progressData.sectionStatus[sectionKey];
     
+    // Special handling for Personal Statement - only show Start or Completed
+    if (sectionName === 'Personal Statement') {
+      if (section.status === 'Completed') {
+        return (
+          <div className="flex space-x-2">
+            <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
+              Edit
+            </Link>
+            <button 
+              onClick={() => toggleSectionCompletion(sectionName)}
+              disabled={isSectionUpdating}
+              className="border border-red-300 rounded px-3 py-1 text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              Mark Incomplete
+            </button>
+          </div>
+        );
+      } else {
+        // For Personal Statement, treat "In Progress" as "Not Started"
+        return (
+          <div className="flex space-x-2">
+            <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
+              Start
+            </Link>
+          </div>
+        );
+      }
+    }
+    
+    // Normal handling for other sections
     if (section.status === 'Completed') {
       return (
         <div className="flex space-x-2">
@@ -472,13 +564,6 @@ export default function Dashboard() {
           <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
             Continue
           </Link>
-          <button 
-            onClick={() => toggleSectionCompletion(sectionName)}
-            disabled={isSectionUpdating}
-            className="border border-green-300 rounded px-3 py-1 text-green-600 hover:bg-green-50 disabled:opacity-50"
-          >
-            Mark Complete
-          </button>
         </div>
       );
     } else {
@@ -487,13 +572,6 @@ export default function Dashboard() {
           <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
             Start
           </Link>
-          <button 
-            onClick={() => toggleSectionCompletion(sectionName)}
-            disabled={isSectionUpdating}
-            className="border border-green-300 rounded px-3 py-1 text-green-600 hover:bg-green-50 disabled:opacity-50"
-          >
-            Mark Complete
-          </button>
         </div>
       );
     }
@@ -574,8 +652,6 @@ export default function Dashboard() {
               {displayUserData('name', 'Dr.')}
             </h1>
             
-            
-            
             {hasUserData('email') && (
               <p className="text-gray-700">
                 <span className="font-medium">Email:</span> {displayUserData('email')}
@@ -607,7 +683,7 @@ export default function Dashboard() {
             )}
             
             {/* Debug buttons panel - remove in production */}
-            <div className="flex flex-wrap gap-2 mt-3">
+            {/* <div className="flex flex-wrap gap-2 mt-3">
               <button 
                 onClick={handleUpdateProfileClick}
                 className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
@@ -632,7 +708,7 @@ export default function Dashboard() {
               >
                 Clear All Data
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -660,19 +736,17 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between py-4 border-b border-gray-200">
           <p className="font-medium text-gray-800 mb-2 md:mb-0">Personal Statement</p>
           <div className="flex items-center mt-2 md:mt-0">
-            <p className="text-gray-500 mr-4">{progressData.sectionStatus.personalStatement.status}</p>
-            <div className={`bg-${progressData.sectionStatus.personalStatement.color}-500 rounded-full p-1.5 mr-4 transition-all duration-300`}>
-              {progressData.sectionStatus.personalStatement.icon === 'plus' && (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-              )}
-              {progressData.sectionStatus.personalStatement.icon === 'check' && (
+            <p className="text-gray-500 mr-4">
+              {progressData.sectionStatus.personalStatement.status === 'Completed' 
+                ? 'Completed' 
+                : 'Not Started'}
+            </p>
+            <div className={`bg-${progressData.sectionStatus.personalStatement.status === 'Completed' ? 'green' : 'amber'}-500 rounded-full p-1.5 mr-4 transition-all duration-300`}>
+              {progressData.sectionStatus.personalStatement.status === 'Completed' ? (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-              )}
-              {progressData.sectionStatus.personalStatement.icon === 'arrow' && (
+              ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>

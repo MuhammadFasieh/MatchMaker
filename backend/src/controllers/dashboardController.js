@@ -55,7 +55,7 @@ exports.getDashboardData = async (req, res) => {
     }
 
     // Get application sections
-    const personalStatement = await PersonalStatement.findOne({ userId }).select('isComplete');
+    const personalStatement = await PersonalStatement.findOne({ user: userId }).select('isComplete');
     const researchProducts = await ResearchProduct.find({ userId }).select('_id isComplete');
     const experiences = await Experience.find({ userId }).select('_id isComplete isMostMeaningful');
     const miscellaneous = await MiscellaneousQuestion.findOne({ userId }).select('isComplete');
@@ -74,7 +74,7 @@ exports.getDashboardData = async (req, res) => {
     const sectionsStatus = {
       personalStatement: {
         isComplete: personalStatement ? personalStatement.isComplete : false,
-        status: personalStatement ? (personalStatement.isComplete ? 'Completed' : 'In Progress') : 'Not Started'
+        status: personalStatement ? (personalStatement.isComplete ? 'Completed' : 'Not Started') : 'Not Started'
       },
       researchProducts: {
         isComplete: researchProducts.length > 0 && researchProducts.every(product => product.isComplete),
@@ -230,11 +230,28 @@ exports.updateSectionProgress = async (req, res) => {
     let updatedModel = null;
     switch (sectionName) {
       case 'personalStatement':
+        // Extra logging for personal statement updates
+        console.log(`Updating personal statement for user ${userId} to isComplete=${isComplete}`);
+        
+        // Force create or update the personal statement
         updatedModel = await PersonalStatement.findOneAndUpdate(
-          { userId },
-          { isComplete },
-          { new: true, upsert: true }
+          { user: userId },
+          { 
+            isComplete,
+            // Add a timestamp to ensure the document is actually updated
+            lastUpdated: new Date()
+          },
+          { 
+            new: true, 
+            upsert: true, 
+            // Use runValidators to ensure schema validation runs
+            runValidators: true,
+            // Set all fields if this is a new document
+            setDefaultsOnInsert: true 
+          }
         );
+        
+        console.log("Personal statement update result:", updatedModel);
         break;
 
       case 'researchProducts':
@@ -280,7 +297,7 @@ exports.updateSectionProgress = async (req, res) => {
 
     // Recalculate dashboard data after update
     // Get application sections
-    const personalStatement = await PersonalStatement.findOne({ userId }).select('isComplete');
+    const personalStatement = await PersonalStatement.findOne({ user: userId }).select('isComplete');
     const researchProducts = await ResearchProduct.find({ userId }).select('_id isComplete');
     const experiences = await Experience.find({ userId }).select('_id isComplete isMostMeaningful');
     const miscellaneous = await MiscellaneousQuestion.findOne({ userId }).select('isComplete');
@@ -290,7 +307,7 @@ exports.updateSectionProgress = async (req, res) => {
     const sectionsStatus = {
       personalStatement: {
         isComplete: personalStatement ? personalStatement.isComplete : false,
-        status: personalStatement ? (personalStatement.isComplete ? 'Completed' : 'In Progress') : 'Not Started'
+        status: personalStatement ? (personalStatement.isComplete ? 'Completed' : 'Not Started') : 'Not Started'
       },
       researchProducts: {
         isComplete: researchProducts.length > 0 && researchProducts.every(product => product.isComplete),

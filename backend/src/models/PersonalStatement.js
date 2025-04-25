@@ -1,78 +1,75 @@
 const mongoose = require('mongoose');
 
-const PersonalStatementSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  specialties: {
-    type: [String],
-    required: true
-  },
-  motivation: {
-    type: String,
-    required: true
-  },
-  characteristics: {
-    type: [String],
-    required: true,
-    validate: {
-      validator: function(val) {
-        return val.length <= 3;
-      },
-      message: 'You can select a maximum of 3 characteristics'
+const PersonalStatementSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    specialties: {
+      type: [String],
+      default: []
+    },
+    reason: {
+      type: String,
+      default: ''
+    },
+    characteristics: {
+      type: [String],
+      default: []
+    },
+    experiences: {
+      type: [String],
+      default: []
+    },
+    selectedThesis: {
+      type: String,
+      default: ''
+    },
+    thesisStatements: {
+      type: [String],
+      default: []
+    },
+    personalStatement: {
+      type: String,
+      default: ''
+    },
+    isComplete: {
+      type: Boolean,
+      default: false
+    },
+    lastUpdated: {
+      type: Date,
+      default: Date.now
     }
   },
-  characteristicStories: [
-    {
-      characteristic: {
-        type: String,
-        required: true
-      },
-      story: {
-        type: String,
-        required: true
-      }
-    }
-  ],
-  thesisStatements: {
-    type: [String],
-    default: []
-  },
-  selectedThesisStatement: {
-    type: String,
-    default: null
-  },
-  finalStatement: {
-    type: String,
-    default: null
-  },
-  wordCount: {
-    type: Number,
-    default: 0
-  },
-  isComplete: {
-    type: Boolean,
-    default: false
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  {
+    timestamps: true
   }
-});
+);
 
-// Pre-update hook
-PersonalStatementSchema.pre('findOneAndUpdate', function(next) {
-  // Update the updatedAt field
-  this.set({ updatedAt: Date.now() });
+// Validator for complete personal statements only
+PersonalStatementSchema.pre('save', function(next) {
+  // Only validate if isComplete is true and this is a full document (not just an update)
+  if (this.isComplete && this.isNew) {
+    // Check required fields
+    if (!this.specialties.length || !this.reason || 
+        !this.characteristics.length || !this.experiences.length ||
+        !this.selectedThesis || !this.thesisStatements.length || 
+        !this.personalStatement) {
+      return next(new Error('Cannot mark as complete: Missing required fields'));
+    }
+    
+    // Validate arrays if present
+    if (this.characteristics.length > 0 && this.characteristics.length !== 3) {
+      return next(new Error('Must select exactly 3 characteristics'));
+    }
+    if (this.experiences.length > 0 && this.experiences.length !== 3) {
+      return next(new Error('Must have exactly 3 experiences'));
+    }
+  }
   next();
 });
 
-const PersonalStatement = mongoose.model('PersonalStatement', PersonalStatementSchema);
-
-module.exports = PersonalStatement; 
+module.exports = mongoose.model('PersonalStatement', PersonalStatementSchema); 

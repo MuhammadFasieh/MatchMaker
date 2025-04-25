@@ -69,6 +69,7 @@ exports.register = asyncHandler(async (req, res, next) => {
     },
     specialties,
     geographicalPreferences,
+    specialty: req.body.specialty || '',
     profilePhoto: profilePhotoUrl || 'default-profile.jpg',
     resume: resumeUrl,
     role: 'applicant',
@@ -382,7 +383,7 @@ exports.getProfile = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/auth/profile
 // @access  Private
 exports.updateProfile = asyncHandler(async (req, res, next) => {
-  const { firstName, lastName, phoneNumber, bio, address, socialLinks } = req.body;
+  const { firstName, lastName, phoneNumber, bio, address, socialLinks, specialty } = req.body;
 
   const updates = {};
 
@@ -393,6 +394,7 @@ exports.updateProfile = asyncHandler(async (req, res, next) => {
   if (bio) updates.bio = bio;
   if (address) updates.address = address;
   if (socialLinks) updates.socialLinks = socialLinks;
+  if (specialty) updates.specialty = specialty;
 
   const user = await User.findByIdAndUpdate(req.user.id, updates, {
     new: true,

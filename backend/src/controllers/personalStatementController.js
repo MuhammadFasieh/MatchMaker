@@ -5,14 +5,15 @@ const Experience = require('../models/Experience');
 const MiscellaneousQuestion = require('../models/MiscellaneousQuestion');
 const ProgramPreference = require('../models/ProgramPreference');
 const { generateThesisStatements, generateFinalStatement } = require('../services/personalStatementService');
+const { generatePersonalStatementPDF } = require('../services/pdfService');
 
 // Get personal statement data
 exports.getPersonalStatement = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
 
     // Find personal statement for the user
-    const personalStatement = await PersonalStatement.findOne({ userId });
+    const personalStatement = await PersonalStatement.findOne({ user: userId });
     if (!personalStatement) {
       return res.status(404).json({
         success: false,
@@ -22,14 +23,13 @@ exports.getPersonalStatement = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      personalStatement
+      data: personalStatement
     });
   } catch (error) {
-    console.error('Get personal statement error:', error);
+    console.error('Error retrieving personal statement:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error retrieving personal statement',
-      error: error.message
+      message: error.message || 'Error retrieving personal statement'
     });
   }
 };
@@ -37,7 +37,7 @@ exports.getPersonalStatement = async (req, res) => {
 // Save initial personal statement data
 exports.savePersonalStatementData = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
     const { specialties, motivation, characteristics, characteristicStories } = req.body;
 
     // Validate input
@@ -57,7 +57,7 @@ exports.savePersonalStatementData = async (req, res) => {
     }
 
     // Check if user already has a personal statement
-    let personalStatement = await PersonalStatement.findOne({ userId });
+    let personalStatement = await PersonalStatement.findOne({ user: userId });
     
     if (personalStatement) {
       // Update existing personal statement
@@ -68,7 +68,7 @@ exports.savePersonalStatementData = async (req, res) => {
     } else {
       // Create new personal statement
       personalStatement = new PersonalStatement({
-        userId,
+        user: userId,
         specialties,
         motivation,
         characteristics,
@@ -82,14 +82,13 @@ exports.savePersonalStatementData = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Personal statement data saved successfully',
-      personalStatement
+      data: personalStatement
     });
   } catch (error) {
-    console.error('Save personal statement data error:', error);
+    console.error('Error saving personal statement:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error saving personal statement data',
-      error: error.message
+      message: error.message || 'Error saving personal statement'
     });
   }
 };
@@ -97,10 +96,10 @@ exports.savePersonalStatementData = async (req, res) => {
 // Generate thesis statements
 exports.generateThesisStatements = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
 
     // Get personal statement data
-    const personalStatement = await PersonalStatement.findOne({ userId });
+    const personalStatement = await PersonalStatement.findOne({ user: userId });
     if (!personalStatement) {
       return res.status(404).json({
         success: false,
@@ -147,7 +146,7 @@ exports.generateThesisStatements = async (req, res) => {
 // Save selected thesis statement
 exports.saveSelectedThesis = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
     const { selectedThesisStatement } = req.body;
 
     // Validate input
@@ -159,7 +158,7 @@ exports.saveSelectedThesis = async (req, res) => {
     }
 
     // Get personal statement data
-    const personalStatement = await PersonalStatement.findOne({ userId });
+    const personalStatement = await PersonalStatement.findOne({ user: userId });
     if (!personalStatement) {
       return res.status(404).json({
         success: false,
@@ -198,10 +197,10 @@ exports.saveSelectedThesis = async (req, res) => {
 // Generate final personal statement
 exports.generateFinalStatement = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
 
     // Get personal statement data
-    const personalStatement = await PersonalStatement.findOne({ userId });
+    const personalStatement = await PersonalStatement.findOne({ user: userId });
     if (!personalStatement) {
       return res.status(404).json({
         success: false,
@@ -254,7 +253,7 @@ exports.generateFinalStatement = async (req, res) => {
 // Save final personal statement (if user wants to edit the generated one)
 exports.saveFinalStatement = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
     const { finalStatement } = req.body;
 
     // Validate input
@@ -266,7 +265,7 @@ exports.saveFinalStatement = async (req, res) => {
     }
 
     // Get personal statement data
-    const personalStatement = await PersonalStatement.findOne({ userId });
+    const personalStatement = await PersonalStatement.findOne({ user: userId });
     if (!personalStatement) {
       return res.status(404).json({
         success: false,
@@ -326,5 +325,195 @@ const updateUserProgress = async (userId) => {
     await user.save();
   } catch (error) {
     console.error('Update user progress error:', error);
+  }
+};
+
+/**
+ * Save a personal statement
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.savePersonalStatement = async (req, res) => {
+  try {
+    const { 
+      specialties, 
+      reason, 
+      characteristics, 
+      experiences,
+      selectedThesis,
+      thesisStatements, 
+      personalStatement 
+    } = req.body;
+    
+    // Validate required fields
+    if (!specialties || !reason || !characteristics || !experiences || 
+        !selectedThesis || !thesisStatements || !personalStatement) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields' 
+      });
+    }
+    
+    // Get user ID from authenticated request
+    const userId = req.user._id;
+    
+    // Check if user already has a personal statement
+    let userPersonalStatement = await PersonalStatement.findOne({ user: userId });
+    
+    if (userPersonalStatement) {
+      // Update existing personal statement
+      userPersonalStatement.specialties = specialties;
+      userPersonalStatement.reason = reason;
+      userPersonalStatement.characteristics = characteristics;
+      userPersonalStatement.experiences = experiences;
+      userPersonalStatement.selectedThesis = selectedThesis;
+      userPersonalStatement.thesisStatements = thesisStatements;
+      userPersonalStatement.personalStatement = personalStatement;
+      
+      await userPersonalStatement.save();
+    } else {
+      // Create new personal statement
+      userPersonalStatement = await PersonalStatement.create({
+        user: userId,
+        specialties,
+        reason,
+        characteristics,
+        experiences,
+        selectedThesis,
+        thesisStatements,
+        personalStatement
+      });
+    }
+    
+    // Update the dashboard section status (assuming you have a Dashboard model)
+    // This is optional based on your application's architecture
+    try {
+      // Import dashboard model/controller functions here if needed
+      // await updateDashboardSection(userId, 'personalStatement', true);
+    } catch (dashboardError) {
+      console.error('Error updating dashboard status:', dashboardError);
+      // Continue execution, don't return error response
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: userPersonalStatement
+    });
+  } catch (error) {
+    console.error('Error saving personal statement:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error saving personal statement'
+    });
+  }
+};
+
+/**
+ * Download personal statement as PDF
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.downloadPersonalStatementPDF = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    // Get personal statement data
+    const personalStatement = await PersonalStatement.findOne({ user: userId });
+    if (!personalStatement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Personal statement not found'
+      });
+    }
+    
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=personal-statement-${new Date().toISOString().split('T')[0]}.pdf`);
+    
+    // Format the data for the PDF generator
+    const pdfData = {
+      specialties: personalStatement.specialties || [],
+      selectedThesis: personalStatement.selectedThesis || personalStatement.selectedThesisStatement || '',
+      personalStatement: personalStatement.personalStatement || personalStatement.finalStatement || ''
+    };
+    
+    console.log('PDF Data being sent to generator:', JSON.stringify(pdfData, null, 2));
+    
+    // Generate PDF and stream directly to response
+    await generatePersonalStatementPDF(pdfData, res);
+    
+    // The response will be handled by the PDF generator
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error generating PDF'
+    });
+  }
+};
+
+// Direct completion method - ensures personal statement can be marked complete
+exports.completePersonalStatement = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    console.log(`[completePersonalStatement] Starting direct completion for user ${userId}`);
+    
+    // Find or create a personal statement document
+    let personalStatement = await PersonalStatement.findOne({ user: userId });
+    
+    if (!personalStatement) {
+      console.log(`[completePersonalStatement] No personal statement found, creating a base document for ${userId}`);
+      personalStatement = new PersonalStatement({
+        user: userId,
+        isComplete: true,
+        lastUpdated: new Date()
+      });
+    } else {
+      console.log(`[completePersonalStatement] Existing personal statement found for ${userId}, marking as complete`);
+      personalStatement.isComplete = true;
+      personalStatement.lastUpdated = new Date();
+    }
+    
+    // Save with validation bypassed if necessary
+    try {
+      await personalStatement.save();
+      console.log(`[completePersonalStatement] Personal statement saved as complete for ${userId}`);
+    } catch (saveError) {
+      console.warn(`[completePersonalStatement] Error with standard save, using bypass method: ${saveError.message}`);
+      
+      // Use findOneAndUpdate as a fallback with validation bypassed
+      await PersonalStatement.findOneAndUpdate(
+        { user: userId },
+        { 
+          $set: { 
+            isComplete: true,
+            lastUpdated: new Date()
+          }
+        },
+        { 
+          new: true, 
+          upsert: true,
+          runValidators: false // Skip validation
+        }
+      );
+      console.log(`[completePersonalStatement] Used bypass method to mark as complete for ${userId}`);
+    }
+    
+    // Update the user progress
+    await updateUserProgress(userId);
+    console.log(`[completePersonalStatement] User progress updated for ${userId}`);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Personal statement successfully marked as complete'
+    });
+    
+  } catch (error) {
+    console.error('Error completing personal statement:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Error completing personal statement'
+    });
   }
 }; 

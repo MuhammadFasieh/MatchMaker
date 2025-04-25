@@ -28,7 +28,7 @@ export default function MatchMakerSignup() {
     // Step 3 data
     nationality: "",
     workAuthorization: "",
-    specialties: "",
+    specialty: "",
     preferredLocations: "",
     
     // Step 4 data
@@ -572,8 +572,8 @@ export default function MatchMakerSignup() {
 
                 <div className="relative w-full">
                   <select
-                    name="specialties"
-                    value={formData.specialties}
+                    name="specialty"
+                    value={formData.specialty}
                     onChange={handleInputChange}
                     className="w-full h-10 border border-gray-300 rounded-md px-4 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{
@@ -584,11 +584,11 @@ export default function MatchMakerSignup() {
                     }}
                   >
                     <option value="" disabled>Specialty(ies) Applying To</option>
-                    <option value="family">Family Medicine</option>
-                    <option value="internal">Internal Medicine</option>
-                    <option value="pediatrics">Pediatrics</option>
-                    <option value="surgery">General Surgery</option>
-                    <option value="other">Other</option>
+                    <option value="Family Medicine">Family Medicine</option>
+                    <option value="Internal Medicine">Internal Medicine</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="General Surgery">General Surgery</option>
+                    <option value="Other">Other</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
                     <svg

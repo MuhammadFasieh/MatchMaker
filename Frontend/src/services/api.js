@@ -238,13 +238,63 @@ export const personalStatement = {
     });
   },
   
-  // Generate statement with AI
+  // Direct method to mark personal statement as complete
+  markComplete: async () => {
+    return await safeFetch(`${API_URL}/personal-statement/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+  },
+  
+  // Generate statement with AI (if needed)
   generate: async (prompt) => {
     return await safeFetch(`${API_URL}/personal-statement/generate`, {
       method: 'POST',
       body: JSON.stringify({ prompt }),
       headers: { 'Content-Type': 'application/json' }
     });
+  },
+  
+  // Download personal statement as PDF
+  downloadPDF: () => {
+    const token = getAuthToken();
+    const url = `${API_URL}/personal-statement/download-pdf`;
+    
+    // Create a hidden anchor element
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    
+    // Add the auth token as a header
+    if (token) {
+      // For security reasons, we use a technique that works with the browser's API
+      // This triggers a download with authentication
+      fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `personal-statement-${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      })
+      .catch(error => {
+        console.error('Error downloading PDF:', error);
+        alert('Failed to download PDF. Please try again.');
+      });
+    } else {
+      console.error('No auth token available for PDF download');
+      alert('You must be logged in to download your personal statement.');
+    }
+    
+    // This doesn't return a Promise because it handles the download directly
+    return { success: true };
   }
 };
 
@@ -458,6 +508,27 @@ export const applications = {
   getStatus: async (id) => {
     return await safeFetch(`${API_URL}/applications/${id}/status`, {
       method: 'GET'
+    });
+  }
+};
+
+// OpenAI API for Personal Statements
+export const openai = {
+  // Generate thesis statements
+  generateThesisStatements: async (data) => {
+    return await safeFetch(`${API_URL}/openai/thesis-statements`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  },
+  
+  // Generate complete personal statement
+  generatePersonalStatement: async (data) => {
+    return await safeFetch(`${API_URL}/openai/personal-statement`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
     });
   }
 }; 
