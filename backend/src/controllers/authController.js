@@ -449,15 +449,15 @@ exports.uploadCV = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Please upload a PDF file', 400));
   }
 
-  // Upload file to S3
-  const cvUrl = await uploadToS3(file, 'resumes');
+  // Get the file path
+  const filePath = file.path;
 
-  // Update user profile with new CV URL
-  await User.findByIdAndUpdate(req.user.id, { resume: cvUrl });
+  // Update user profile with new CV path
+  await User.findByIdAndUpdate(req.user.id, { resume: filePath });
 
   res.status(200).json({
     success: true,
-    data: cvUrl
+    data: filePath
   });
 });
 

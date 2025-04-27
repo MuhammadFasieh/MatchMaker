@@ -52,6 +52,10 @@ const ResearchProductSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  pubmedEnriched: {
+    type: Boolean,
+    default: false
+  },
   isComplete: {
     type: Boolean,
     default: false

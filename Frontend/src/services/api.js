@@ -37,11 +37,14 @@ const getAuthToken = () => {
 };
 
 // Configure request headers with auth token
-const getAuthHeaders = () => {
+const getAuthHeaders = (isFormData = false) => {
   const token = getAuthToken();
-  const headers = {
-    'Content-Type': 'application/json'
-  };
+  const headers = {};
+  
+  // Only set Content-Type for JSON requests, not for FormData
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -58,18 +61,23 @@ const safeFetch = async (url, options = {}) => {
   // Ensure headers exist
   options.headers = options.headers || {};
   
-  // Add auth headers if not specifically disabled
-  if (options.auth !== false) {
+  // Add auth headers if not specifically disabled and if headers are not already set
+  if (options.auth !== false && !options.headers['Authorization']) {
     const authHeaders = getAuthHeaders();
-    Object.assign(options.headers, authHeaders);
+    // Only merge headers if they don't already exist
+    Object.keys(authHeaders).forEach(key => {
+      if (!options.headers[key]) {
+        options.headers[key] = authHeaders[key];
+      }
+    });
     console.log(`Request to ${url} with auth:`, options.method || 'GET');
     delete options.auth;
   } else {
-    console.log(`Request to ${url} without auth:`, options.method || 'GET');
+    console.log(`Request to ${url} with custom headers:`, options.method || 'GET');
   }
   
   try {
-    console.log(`Fetching ${url}...`);
+    console.log(`Fetching ${url}...`, options);
     const response = await fetch(url, options);
     console.log(`Response status from ${url}:`, response.status);
     return await handleResponse(response);
@@ -337,6 +345,35 @@ export const research = {
     return await safeFetch(`${API_URL}/research/${id}`, {
       method: 'DELETE'
     });
+  },
+  
+  // Parse CV to extract research products
+  parseCV: async (cvFile) => {
+    const formData = new FormData();
+    formData.append('cv', cvFile);
+    
+    try {
+      console.log('Uploading CV file:', cvFile.name, cvFile.type, cvFile.size);
+      
+      // Get auth token
+      const token = getAuthToken();
+      const headers = {};
+      
+      // Only add Authorization header, no Content-Type for FormData
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log("Added Authorization header for CV upload");
+      }
+      
+      return await safeFetch(`${API_URL}/research/parse-cv`, {
+        method: 'POST',
+        body: formData,
+        headers
+      });
+    } catch (error) {
+      console.error('CV upload error:', error);
+      throw error;
+    }
   }
 };
 

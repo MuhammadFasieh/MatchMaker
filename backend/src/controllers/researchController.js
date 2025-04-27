@@ -5,14 +5,17 @@ const Experience = require('../models/Experience');
 const MiscellaneousQuestion = require('../models/MiscellaneousQuestion');
 const ProgramPreference = require('../models/ProgramPreference');
 const { extractResearchProducts } = require('../services/cvParsingService');
+const { enrichResearchProduct } = require('../services/pubmedService');
 const fs = require('fs');
 const util = require('util');
 const readFile = util.promisify(fs.readFile);
+const pdf = require('pdf-parse');
+const { uploadToS3 } = require('../config/aws');
 
 // Get all research products for a user
 exports.getResearchProducts = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
 
     // Find all research products for the user
     const researchProducts = await ResearchProduct.find({ userId });
@@ -34,7 +37,8 @@ exports.getResearchProducts = async (req, res) => {
 // Parse CV to extract research products
 exports.parseCV = async (req, res) => {
   try {
-    const userId = req.userId;
+    // Get user ID from the authenticated user
+    const userId = req.user.id;
 
     // Check if file is provided
     if (!req.file) {
@@ -44,56 +48,97 @@ exports.parseCV = async (req, res) => {
       });
     }
 
-    // Read the file content (if it's a PDF, we'd need to use a PDF parsing library)
+    console.log("File received:", {
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path
+    });
+
+    // Get the file path
+    const filePath = req.file.path;
+      
+    // Validate file exists
+    if (!fs.existsSync(filePath)) {
+      console.error('File not found at path:', filePath);
+      return res.status(500).json({
+        success: false,
+        message: 'Error: File not found after upload'
+      });
+    }
+
+    // Read the file content
     let cvText;
+    try {
     if (req.file.mimetype === 'application/pdf') {
-      // For this implementation, we'll assume PDF extraction is handled elsewhere
-      // In a real application, you would use a library like pdf-parse
-      cvText = "PDF parsing would happen here";
+        // Read PDF file
+        const dataBuffer = await readFile(filePath);
+        const data = await pdf(dataBuffer);
+        cvText = data.text;
+        
+        if (!cvText || cvText.trim().length === 0) {
+          throw new Error('No text content extracted from PDF');
+        }
     } else {
       // For text files
-      cvText = await readFile(req.file.path, 'utf8');
+        cvText = await readFile(filePath, 'utf8');
+      }
+    } catch (readError) {
+      console.error('Error reading file:', readError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error reading file content',
+        error: readError.message
+      });
     }
 
     // Extract research products from CV text
-    const extractedProducts = await extractResearchProducts(cvText);
-
-    // Save extracted products to database
-    const savedProducts = [];
-    for (const product of extractedProducts) {
-      const newProduct = new ResearchProduct({
-        userId,
-        title: product.title,
-        type: product.type,
-        status: product.status,
-        authors: product.authors,
-        journal: product.journal,
-        volume: product.volume,
-        issueNumber: product.issueNumber,
-        pages: product.pages,
-        pmid: product.pmid,
-        monthPublished: product.monthPublished,
-        yearPublished: product.yearPublished,
-        isComplete: true
+    let extractedProducts;
+    try {
+      extractedProducts = await extractResearchProducts(cvText);
+      
+      if (!extractedProducts || !Array.isArray(extractedProducts)) {
+        throw new Error('Invalid response from research product extraction');
+      }
+    } catch (extractError) {
+      console.error('Error extracting research products:', extractError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error extracting research products from CV',
+        error: extractError.message
       });
-
-      await newProduct.save();
-      savedProducts.push(newProduct);
     }
 
-    // Update user's application progress
-    await updateUserProgress(userId);
+    // Enrich and save extracted products to database
+    const savedProducts = [];
+    for (const product of extractedProducts) {
+      try {
+        // Enrich with PubMed data
+        const enrichedProduct = await enrichResearchProduct(product);
+        
+        // Save to database
+        const savedProduct = await ResearchProduct.create({
+        userId,
+          ...enrichedProduct
+        });
+        
+        savedProducts.push(savedProduct);
+      } catch (productError) {
+        console.error('Error processing individual product:', productError);
+        // Continue with other products even if one fails
+      }
+    }
 
     return res.status(200).json({
       success: true,
-      message: `${savedProducts.length} research products extracted and saved`,
-      researchProducts: savedProducts
+      message: 'CV parsed successfully',
+      data: savedProducts
     });
   } catch (error) {
     console.error('Parse CV error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error parsing CV',
+      message: 'Error parsing CV',
       error: error.message
     });
   }
@@ -102,7 +147,7 @@ exports.parseCV = async (req, res) => {
 // Add a single research product manually
 exports.addResearchProduct = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const {
       title,
       type,
@@ -166,7 +211,7 @@ exports.addResearchProduct = async (req, res) => {
 // Update a research product
 exports.updateResearchProduct = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const productId = req.params.id;
     const updateData = req.body;
 
@@ -207,7 +252,7 @@ exports.updateResearchProduct = async (req, res) => {
 // Delete a research product
 exports.deleteResearchProduct = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const productId = req.params.id;
 
     // Find and delete the research product
