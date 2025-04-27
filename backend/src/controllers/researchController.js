@@ -281,6 +281,61 @@ exports.deleteResearchProduct = async (req, res) => {
   }
 };
 
+// Save research products
+exports.saveResearchProducts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { products } = req.body;
+    
+    if (!products || !Array.isArray(products)) {
+      return res.status(400).json({
+        success: false,
+        message: 'No research products provided or invalid format'
+      });
+    }
+    
+    // Delete existing products for this user
+    await ResearchProduct.deleteMany({ userId });
+    
+    // Prepare products for saving
+    const productsToSave = products.map(product => ({
+      userId,
+      title: product.title,
+      type: product.type,
+      status: product.status,
+      authors: product.authors,
+      journal: product.journal,
+      volume: product.volume,
+      issueNumber: product.issue,
+      pages: product.pages,
+      pmid: product.pmid,
+      monthPublished: product.month,
+      yearPublished: product.year,
+      pubmedEnriched: product.pubmedEnriched || false,
+      isComplete: product.isComplete || false
+    }));
+    
+    // Save all products
+    const savedProducts = await ResearchProduct.insertMany(productsToSave);
+    
+    // Update user's application progress
+    await updateUserProgress(userId);
+    
+    return res.status(200).json({
+      success: true,
+      message: `${savedProducts.length} research products saved successfully`,
+      data: savedProducts
+    });
+  } catch (error) {
+    console.error('Save research products error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error saving research products',
+      error: error.message
+    });
+  }
+};
+
 // Helper function to update user's application progress
 const updateUserProgress = async (userId) => {
   try {
@@ -300,8 +355,17 @@ const updateUserProgress = async (userId) => {
     if (miscComplete) completedSections++;
     if (programPrefsComplete) completedSections++;
 
-    // Update user's progress
-    user.calculateProgress(completedSections);
+    // Update user's progress directly instead of calling calculateProgress
+    const totalSections = 5; // Total number of sections
+    const percentageComplete = Math.round((completedSections / totalSections) * 100);
+    
+    // Update the applicationProgress field directly
+    user.applicationProgress = {
+      totalSections,
+      completedSections,
+      percentageComplete
+    };
+    
     await user.save();
   } catch (error) {
     console.error('Update user progress error:', error);

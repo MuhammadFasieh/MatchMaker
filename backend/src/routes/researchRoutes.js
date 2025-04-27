@@ -4,19 +4,22 @@ const researchController = require('../controllers/researchController');
 const { protect } = require('../middleware/auth');
 const { uploadSingle } = require('../middleware/upload');
 
-// Get all research products
-router.get('/', protect, researchController.getResearchProducts);
+// Get research products for authenticated user
+router.get('/products', protect, researchController.getResearchProducts);
 
 // Parse CV to extract research products
 router.post('/parse-cv', protect, uploadSingle('cv'), researchController.parseCV);
 
-// Add a new research product
-router.post('/', protect, researchController.addResearchProduct);
+// Save research products
+router.post('/save-products', protect, researchController.saveResearchProducts);
+
+// Add a single research product manually
+router.post('/product', protect, researchController.addResearchProduct);
 
 // Update a research product
-router.put('/:id', protect, researchController.updateResearchProduct);
+router.put('/product/:id', protect, researchController.updateResearchProduct);
 
 // Delete a research product
-router.delete('/:id', protect, researchController.deleteResearchProduct);
+router.delete('/product/:id', protect, researchController.deleteResearchProduct);
 
 module.exports = router; 

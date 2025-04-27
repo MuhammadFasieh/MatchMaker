@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { experiences as experiencesAPI } from '../services/api';
 
 export default function CombinedExperienceComponents() {
 
@@ -53,15 +54,35 @@ export default function CombinedExperienceComponents() {
   ];
 
   const parseCV = async (file) => {
+    try {
+      // First try to use the parseCV API endpoint that also stores in MongoDB
+      // Only try this if we don't want to rely on local parsing
+      /* 
+      const response = await experiencesAPI.parseCV(file);
+      
+      if (response && response.experiences && response.experiences.length > 0) {
+        setExperiences(response.experiences);
+        setTotalPages(response.experiences.length);
+        setCurrentPage(1);
+        setFormData(response.experiences[0]);
+        return true;
+      }
+      */
+      
+      // Since the API endpoint is not available, always use local parsing
+    } catch (error) {
+      console.error('Error using API to parse CV:', error);
+      // Fall back to local parsing if API fails
+    }
+    
+    // Local parsing as fallback (or primary method)
     return new Promise((resolve) => {
       const reader = new FileReader();
       
       reader.onload = (e) => {
         const text = e.target.result;
         
-        
         const parsedData = [];
-        
         
         const experienceMatch = text.match(/experience|employment|work/i);
         const educationMatch = text.match(/education|degree|university/i);
@@ -210,38 +231,75 @@ export default function CombinedExperienceComponents() {
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setFileName(file.name);
-      setStage('analyzing');
-      
-      let currentProgress = 0;
-      const progressInterval = setInterval(() => {
-        currentProgress += 5;
-        setProgress(currentProgress);
-        if (currentProgress >= 100) {
-          clearInterval(progressInterval);
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'application/rtf'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a valid file (PDF, DOC, DOCX, TXT, or RTF)');
+      return;
+    }
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setFileName(file.name);
+    setStage('analyzing');
+    
+    // Start progress animation
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 5;
+      setProgress(Math.min(progress, 90)); // Cap at 90% until complete
+      if (progress >= 90) clearInterval(interval);
+    }, 100);
+
+    try {
+      // Since the API endpoint is not available, only use local parsing
+      const parsed = await parseCV(file);
+      if (parsed && parsed.length > 0) {
+        // Try to save the parsed experiences to MongoDB, but don't block on failure
+        try {
+          const result = await experiencesAPI.saveMultiple(parsed);
+          
+          // If the backend returned experiences with IDs, use those
+          if (result && result.experiences && result.experiences.length > 0) {
+            setExperiences(result.experiences);
+            setTotalPages(result.experiences.length);
+            setFormData(result.experiences[0]);
+          } else {
+            // Otherwise use the locally parsed experiences
+            setExperiences(parsed);
+            setTotalPages(parsed.length);
+            setFormData(parsed[0]);
+          }
+        } catch (saveError) {
+          console.error('Error saving parsed experiences to MongoDB:', saveError);
+          // Continue with the locally parsed experiences
+          setExperiences(parsed);
+          setTotalPages(parsed.length);
+          setFormData(parsed[0]);
         }
-      }, 100);
-      
-      try {
-        const parsedExperiences = await parseCV(file);
-        setExperiences(parsedExperiences);
-        setTotalPages(parsedExperiences.length);
-        setFormData(parsedExperiences[0]);
         
+        setCurrentPage(1);
+        clearInterval(interval);
+        setProgress(100);
+        
+        // Wait a moment to show 100% before transitioning
         setTimeout(() => {
-          clearInterval(progressInterval);
-          setProgress(100);
-          setTimeout(() => {
-            setStage('form');
-          }, 500);
-        }, 2000);
-      } catch (error) {
-        console.error("Error parsing CV:", error);
-        clearInterval(progressInterval);
-        alert("There was an error parsing your CV. Please try again.");
-        setStage('upload');
+          setStage('form');
+        }, 500);
+      } else {
+        throw new Error('No experiences found in CV');
       }
+    } catch (error) {
+      console.error('Error parsing CV:', error);
+      clearInterval(interval);
+      alert('Failed to parse CV. Please try again or manually enter your experiences.');
+      setStage('upload');
     }
   };
 
@@ -257,10 +315,51 @@ export default function CombinedExperienceComponents() {
     });
   };
 
-  const handleSaveChanges = () => {
-    console.log('Saved data:', experiences);
-    setShowAlert(true);
-    setTimeout(() => setShowAlert(false), 3000);
+  const handleSaveChanges = async () => {
+    try {
+      // Make sure experiences exist and current page is valid
+      if (!experiences || experiences.length === 0 || currentPage < 1 || currentPage > experiences.length) {
+        throw new Error('No valid experience data to save');
+      }
+      
+      // Save the current experience
+      const currentExperience = experiences[currentPage - 1];
+      
+      if (!currentExperience) {
+        throw new Error('Current experience data is missing');
+      }
+      
+      // Create a copy to avoid modifying the original object
+      const experienceToSave = { ...currentExperience };
+      
+      // If the experience has an id, update it, otherwise create a new one
+      if (experienceToSave._id) {
+        const response = await experiencesAPI.update(experienceToSave._id, experienceToSave);
+        
+        // Update the experiences array with any returned data
+        if (response) {
+          const updatedExperiences = [...experiences];
+          updatedExperiences[currentPage - 1] = { ...experienceToSave, ...response };
+          setExperiences(updatedExperiences);
+        }
+      } else {
+        const response = await experiencesAPI.create(experienceToSave);
+        
+        if (response && response._id) {
+          // Update the experiences array with the new ID
+          const updatedExperiences = [...experiences];
+          updatedExperiences[currentPage - 1] = { ...experienceToSave, _id: response._id };
+          setExperiences(updatedExperiences);
+        }
+      }
+      
+      console.log('Saved data to MongoDB:', experienceToSave);
+      setShowAlert(true);
+      setTimeout(() => setShowAlert(false), 3000);
+    } catch (error) {
+      console.error('Error saving experience:', error);
+      alert('Failed to save experience. Please try again.');
+    }
   };
 
   const handleBrowseFiles = () => {
@@ -299,21 +398,45 @@ export default function CombinedExperienceComponents() {
     setCharCount(text.length);
   };
 
-  const handleSaveMedicalExperiences = () => {
-    const medicalFormData = {
-      selectedExperiences,
-      expansionNotes
-    };
-    
-    console.log('Medical experiences form data saved:', medicalFormData);
-    
-    setShowAlert(true);
-    
-    setTimeout(() => {
-      setShowAlert(false);
-    }, 3000);
-    
-    setFormSubmitted(true);
+  const handleSaveMedicalExperiences = async () => {
+    try {
+      const medicalFormData = {
+        selectedExperiences,
+        expansionNotes
+      };
+      
+      // Check if we're using predefined medical experiences
+      const isUsingPredefined = selectedExperiences.some(id => 
+        medicalExperiences.some(exp => exp.id === id)
+      );
+      
+      // Only try to mark experiences if we're not using predefined ones and there are IDs
+      if (!isUsingPredefined && selectedExperiences.length > 0) {
+        // Mark selected experiences as most meaningful
+        for (const expId of selectedExperiences) {
+          if (expId) {
+            try {
+              await experiencesAPI.markMostMeaningful(expId);
+            } catch (error) {
+              console.warn(`Could not mark experience ${expId} as meaningful:`, error);
+            }
+          }
+        }
+      }
+      
+      console.log('Medical experiences form data saved:', medicalFormData);
+      
+      setShowAlert(true);
+      
+      setTimeout(() => {
+        setShowAlert(false);
+      }, 3000);
+      
+      setFormSubmitted(true);
+    } catch (error) {
+      console.error('Error saving meaningful experiences:', error);
+      alert('Failed to save meaningful experiences. Please try again.');
+    }
   };
 
   useEffect(() => {
@@ -321,6 +444,26 @@ export default function CombinedExperienceComponents() {
       setFormData(experiences[currentPage - 1]);
     }
   }, [currentPage, experiences]);
+
+  useEffect(() => {
+    const loadExperiences = async () => {
+      try {
+        const response = await experiencesAPI.getAll();
+        
+        if (response && response.length > 0) {
+          setExperiences(response);
+          setTotalPages(response.length);
+          setFormData(response[0]);
+          setCurrentPage(1);
+          setStage('form');
+        }
+      } catch (error) {
+        console.error('Error loading experiences:', error);
+      }
+    };
+    
+    loadExperiences();
+  }, []);
 
   const handleReuploadCV = () => {
     setStage('upload');
