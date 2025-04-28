@@ -5,6 +5,14 @@ const crypto = require('crypto');
 
 const UserSchema = new mongoose.Schema(
   {
+    firstName: {
+      type: String,
+      required: [true, 'Please add a first name']
+    },
+    lastName: {
+      type: String,
+      required: [true, 'Please add a last name']
+    },
     name: {
       type: String,
       required: [true, 'Please add a name']
@@ -116,7 +124,7 @@ const UserSchema = new mongoose.Schema(
 
 // Virtual for fullName
 UserSchema.virtual('fullName').get(function() {
-  return `${this.firstName} ${this.lastName}`;
+  return `${this.firstName || ''} ${this.lastName || ''}`.trim();
 });
 
 // Virtual for applications
@@ -137,6 +145,12 @@ UserSchema.virtual('managedPrograms', {
 
 // Encrypt password using bcrypt
 UserSchema.pre('save', async function(next) {
+  // Update the name field whenever firstName or lastName changes
+  if (this.isModified('firstName') || this.isModified('lastName')) {
+    this.name = `${this.firstName} ${this.lastName}`.trim();
+  }
+
+  // Only hash password if it's modified
   if (!this.isModified('password')) {
     next();
     return;
@@ -144,6 +158,39 @@ UserSchema.pre('save', async function(next) {
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// Update name field before updating user via findOneAndUpdate
+UserSchema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  
+  if (update.firstName || update.lastName) {
+    const user = this._update;
+    
+    // Get current values if not being updated
+    if (!user.firstName || !user.lastName) {
+      // Since we don't have access to the document directly in pre-findOneAndUpdate,
+      // we need to fetch the current firstName/lastName if one isn't being updated
+      return this.model.findOne(this.getQuery())
+        .then(doc => {
+          if (!doc) return next();
+          
+          // Use existing values for fields not being updated
+          const firstName = user.firstName || doc.firstName;
+          const lastName = user.lastName || doc.lastName;
+          
+          // Update the name field
+          this._update.name = `${firstName} ${lastName}`.trim();
+          next();
+        })
+        .catch(err => next(err));
+    } else {
+      // Both firstName and lastName are being updated
+      this._update.name = `${user.firstName} ${user.lastName}`.trim();
+    }
+  }
+  
   next();
 });
 
