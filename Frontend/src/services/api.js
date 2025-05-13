@@ -3,36 +3,39 @@
  */
 
 // Base API URL - will use relative URL when deployed together
-const API_URL = 'http://localhost:5001/api';
+const API_URL = "http://localhost:5001/api";
 
 // Helper function to handle fetch responses
 const handleResponse = async (response) => {
-  const contentType = response.headers.get('content-type');
-  
-  if (contentType && contentType.includes('application/json')) {
+  const contentType = response.headers.get("content-type");
+
+  if (contentType && contentType.includes("application/json")) {
     const data = await response.json();
-    
+
     if (!response.ok) {
       // Handle API error responses
-      const error = data.message || 'API Error';
+      const error = data.message || "API Error";
       throw new Error(error);
     }
-    
+
     return data;
   }
-  
+
   // For non-JSON responses
   if (!response.ok) {
-    throw new Error('API Error');
+    throw new Error("API Error");
   }
-  
+
   return { success: true };
 };
 
 // Get the auth token from localStorage
 const getAuthToken = () => {
-  const token = localStorage.getItem('token');
-  console.log("Auth token retrieved from localStorage:", token ? "exists" : "not found");
+  const token = localStorage.getItem("token");
+  console.log(
+    "Auth token retrieved from localStorage:",
+    token ? "exists" : "not found"
+  );
   return token;
 };
 
@@ -40,19 +43,19 @@ const getAuthToken = () => {
 const getAuthHeaders = (isFormData = false) => {
   const token = getAuthToken();
   const headers = {};
-  
+
   // Only set Content-Type for JSON requests, not for FormData
   if (!isFormData) {
-    headers['Content-Type'] = 'application/json';
+    headers["Content-Type"] = "application/json";
   }
-  
+
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
     console.log("Added Authorization header with Bearer token");
   } else {
     console.warn("No token available for Authorization header");
   }
-  
+
   return headers;
 };
 
@@ -60,22 +63,25 @@ const getAuthHeaders = (isFormData = false) => {
 const safeFetch = async (url, options = {}) => {
   // Ensure headers exist
   options.headers = options.headers || {};
-  
+
   // Add auth headers if not specifically disabled and if headers are not already set
-  if (options.auth !== false && !options.headers['Authorization']) {
+  if (options.auth !== false && !options.headers["Authorization"]) {
     const authHeaders = getAuthHeaders();
     // Only merge headers if they don't already exist
-    Object.keys(authHeaders).forEach(key => {
+    Object.keys(authHeaders).forEach((key) => {
       if (!options.headers[key]) {
         options.headers[key] = authHeaders[key];
       }
     });
-    console.log(`Request to ${url} with auth:`, options.method || 'GET');
+    console.log(`Request to ${url} with auth:`, options.method || "GET");
     delete options.auth;
   } else {
-    console.log(`Request to ${url} with custom headers:`, options.method || 'GET');
+    console.log(
+      `Request to ${url} with custom headers:`,
+      options.method || "GET"
+    );
   }
-  
+
   try {
     console.log(`Fetching ${url}...`, options);
     const response = await fetch(url, options);
@@ -94,96 +100,97 @@ export const auth = {
     // Create FormData if there are file uploads
     let body;
     let options = {
-      method: 'POST',
-      auth: false // No auth for registration
+      method: "POST",
+      auth: false, // No auth for registration
     };
-    
+
     if (userData.image || userData.cv) {
       body = new FormData();
-      
+
       // Add all text fields
-      Object.keys(userData).forEach(key => {
-        if (userData[key] !== null && typeof userData[key] !== 'object') {
+      Object.keys(userData).forEach((key) => {
+        if (userData[key] !== null && typeof userData[key] !== "object") {
           body.append(key, userData[key]);
         }
       });
-      
+
       // Add file fields
-      if (userData.image) body.append('profileImage', userData.image);
-      if (userData.cv) body.append('cv', userData.cv);
-      
+      if (userData.image) body.append("profileImage", userData.image);
+      if (userData.cv) body.append("cv", userData.cv);
+
       // Don't set Content-Type header - browser will set it with boundary
       options.headers = {};
     } else {
       // JSON request
       body = JSON.stringify(userData);
-      options.headers = { 'Content-Type': 'application/json' };
+      options.headers = { "Content-Type": "application/json" };
     }
-    
+
     options.body = body;
-    
+
     return await safeFetch(`${API_URL}/auth/register`, options);
   },
-  
+
   // Login user
   login: async (credentials) => {
     return await safeFetch(`${API_URL}/auth/login`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(credentials),
-      headers: { 'Content-Type': 'application/json' },
-      auth: false // No auth for login
+      headers: { "Content-Type": "application/json" },
+      auth: false, // No auth for login
     });
   },
-  
+
   // Logout user
   logout: async () => {
     return await safeFetch(`${API_URL}/auth/logout`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Get user profile
   getProfile: async () => {
     return await safeFetch(`${API_URL}/auth/profile`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Update user profile
   updateProfile: async (profileData) => {
     // Handle file uploads if present
     let body;
     let options = {
-      method: 'PUT'
+      method: "PUT",
     };
-    
+
     if (profileData.profileImage || profileData.cv) {
       body = new FormData();
-      
+
       // Add all text fields
-      Object.keys(profileData).forEach(key => {
-        if (profileData[key] !== null && typeof profileData[key] !== 'object') {
+      Object.keys(profileData).forEach((key) => {
+        if (profileData[key] !== null && typeof profileData[key] !== "object") {
           body.append(key, profileData[key]);
         }
       });
-      
+
       // Add file fields
-      if (profileData.profileImage) body.append('profileImage', profileData.profileImage);
-      if (profileData.cv) body.append('cv', profileData.cv);
-      
+      if (profileData.profileImage)
+        body.append("profileImage", profileData.profileImage);
+      if (profileData.cv) body.append("cv", profileData.cv);
+
       // Don't set Content-Type header - browser will set it with boundary
       options.headers = getAuthHeaders();
-      delete options.headers['Content-Type'];
+      delete options.headers["Content-Type"];
     } else {
       // JSON request
       body = JSON.stringify(profileData);
       options.headers = getAuthHeaders();
     }
-    
+
     options.body = body;
-    
+
     return await safeFetch(`${API_URL}/auth/profile`, options);
-  }
+  },
 };
 
 // Dashboard API
@@ -191,41 +198,41 @@ export const dashboard = {
   // Get user dashboard data
   getDashboard: async () => {
     return await safeFetch(`${API_URL}/dashboard`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Renamed to match what's used in Dashboard.jsx
   getDashboardData: async () => {
     return await safeFetch(`${API_URL}/dashboard`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Check if application is ready to submit
   checkApplicationReadiness: async () => {
     return await safeFetch(`${API_URL}/dashboard/check-readiness`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Update dashboard section progress
   updateSectionProgress: async (sectionName, isComplete) => {
     return await safeFetch(`${API_URL}/dashboard/${sectionName}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ isComplete }),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Update dashboard data (keep for backward compatibility)
   updateSection: async (sectionName, data) => {
     return await safeFetch(`${API_URL}/dashboard/${sectionName}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
-  }
+  },
 };
 
 // Personal Statement API
@@ -233,77 +240,79 @@ export const personalStatement = {
   // Get user's personal statement
   get: async () => {
     return await safeFetch(`${API_URL}/personal-statement`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Create or update personal statement
   save: async (data) => {
     return await safeFetch(`${API_URL}/personal-statement`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Direct method to mark personal statement as complete
   markComplete: async () => {
     return await safeFetch(`${API_URL}/personal-statement/complete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Generate statement with AI (if needed)
   generate: async (prompt) => {
     return await safeFetch(`${API_URL}/personal-statement/generate`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ prompt }),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Download personal statement as PDF
   downloadPDF: () => {
     const token = getAuthToken();
     const url = `${API_URL}/personal-statement/download-pdf`;
-    
+
     // Create a hidden anchor element
-    const a = document.createElement('a');
-    a.style.display = 'none';
+    const a = document.createElement("a");
+    a.style.display = "none";
     a.href = url;
-    
+
     // Add the auth token as a header
     if (token) {
       // For security reasons, we use a technique that works with the browser's API
       // This triggers a download with authentication
       fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       })
-      .then(response => response.blob())
-      .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        a.href = url;
-        a.download = `personal-statement-${new Date().toISOString().split('T')[0]}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      })
-      .catch(error => {
-        console.error('Error downloading PDF:', error);
-        alert('Failed to download PDF. Please try again.');
-      });
+        .then((response) => response.blob())
+        .then((blob) => {
+          const url = window.URL.createObjectURL(blob);
+          a.href = url;
+          a.download = `personal-statement-${
+            new Date().toISOString().split("T")[0]
+          }.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        })
+        .catch((error) => {
+          console.error("Error downloading PDF:", error);
+          alert("Failed to download PDF. Please try again.");
+        });
     } else {
-      console.error('No auth token available for PDF download');
-      alert('You must be logged in to download your personal statement.');
+      console.error("No auth token available for PDF download");
+      alert("You must be logged in to download your personal statement.");
     }
-    
+
     // This doesn't return a Promise because it handles the download directly
     return { success: true };
-  }
+  },
 };
 
 // Research Products API
@@ -311,96 +320,96 @@ export const research = {
   // Get all research products
   getAll: async () => {
     return await safeFetch(`${API_URL}/research`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Get single research product
   get: async (id) => {
     return await safeFetch(`${API_URL}/research/${id}`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Create new research product
   create: async (data) => {
     return await safeFetch(`${API_URL}/research`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Update research product
   update: async (id, data) => {
     return await safeFetch(`${API_URL}/research/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Delete research product
   delete: async (id) => {
     return await safeFetch(`${API_URL}/research/${id}`, {
-      method: 'DELETE'
+      method: "DELETE",
     });
   },
-  
+
   // Get all research products for the current user
   getResearchProducts: async () => {
     try {
-      return await safeFetch(`${API_URL}/research/products`, { 
-        method: 'GET'
+      return await safeFetch(`${API_URL}/research/products`, {
+        method: "GET",
       });
     } catch (error) {
-      console.error('Error fetching research products:', error);
+      console.error("Error fetching research products:", error);
       throw error;
     }
   },
-  
+
   // Save research products
   saveResearchProducts: async (products) => {
     try {
       return await safeFetch(`${API_URL}/research/save-products`, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({ products }),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error('Error saving research products:', error);
+      console.error("Error saving research products:", error);
       throw error;
     }
   },
-  
+
   // Parse CV and extract research products
   parseCV: async (file) => {
     try {
       const formData = new FormData();
-      formData.append('cv', file);
-      
-      console.log('Uploading CV file:', file.name, file.type, file.size);
-      
+      formData.append("cv", file);
+
+      console.log("Uploading CV file:", file.name, file.type, file.size);
+
       // Get auth token
       const token = getAuthToken();
       const headers = {};
-      
+
       // Only add Authorization header, no Content-Type for FormData
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers["Authorization"] = `Bearer ${token}`;
         console.log("Added Authorization header for CV upload");
       }
-      
+
       return await safeFetch(`${API_URL}/research/parse-cv`, {
-        method: 'POST',
+        method: "POST",
         body: formData,
-        headers
+        headers,
       });
     } catch (error) {
-      console.error('CV upload error:', error);
+      console.error("CV upload error:", error);
       throw error;
     }
-  }
+  },
 };
 
 // Experiences API
@@ -409,145 +418,150 @@ export const experiences = {
   getAll: async () => {
     try {
       return await safeFetch(`${API_URL}/experiences`, {
-        method: 'GET'
+        method: "GET",
       });
     } catch (error) {
-      console.error('Error fetching experiences:', error);
+      console.error("Error fetching experiences:", error);
       // Return empty array instead of throwing
       return [];
     }
   },
-  
+
   // Get single experience
   get: async (id) => {
     return await safeFetch(`${API_URL}/experiences/${id}`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Create new experience
   create: async (data) => {
     try {
       return await safeFetch(`${API_URL}/experiences`, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error('Error creating experience:', error);
+      console.error("Error creating experience:", error);
       // For testing purposes, return a mock response with an ID
       // This allows the UI to continue working even if the backend fails
       return {
         ...data,
-        _id: 'temp_' + Date.now(),
-        message: 'Created locally only (backend unavailable)'
+        _id: "temp_" + Date.now(),
+        message: "Created locally only (backend unavailable)",
       };
     }
   },
-  
+
   // Update experience
   update: async (id, data) => {
     try {
       // Skip update if ID starts with 'temp_' (locally created)
-      if (id.toString().startsWith('temp_')) {
-        console.warn('Skipping update for temporary experience:', id);
-        return { ...data, message: 'Updated locally only' };
+      if (id.toString().startsWith("temp_")) {
+        console.warn("Skipping update for temporary experience:", id);
+        return { ...data, message: "Updated locally only" };
       }
-      
+
       return await safeFetch(`${API_URL}/experiences/${id}`, {
-        method: 'PUT',
+        method: "PUT",
         body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error('Error updating experience:', error);
+      console.error("Error updating experience:", error);
       // Return the data back so UI can continue working
-      return { ...data, message: 'Update failed, data preserved locally' };
+      return { ...data, message: "Update failed, data preserved locally" };
     }
   },
-  
+
   // Delete experience
   delete: async (id) => {
     return await safeFetch(`${API_URL}/experiences/${id}`, {
-      method: 'DELETE'
+      method: "DELETE",
     });
   },
-  
+
   // Mark experience as most meaningful
   markMostMeaningful: async (id) => {
     try {
       // Skip if the ID starts with 'temp_'
-      if (id.toString().startsWith('temp_')) {
-        console.warn('Skipping markMostMeaningful for temporary ID:', id);
-        return { success: true, message: 'Marked locally only' };
+      if (id.toString().startsWith("temp_")) {
+        console.warn("Skipping markMostMeaningful for temporary ID:", id);
+        return { success: true, message: "Marked locally only" };
       }
-      
+
       return await safeFetch(`${API_URL}/experiences/${id}/most-meaningful`, {
-        method: 'PUT'
+        method: "PUT",
       });
     } catch (error) {
-      console.error('Error marking experience as most meaningful:', error);
+      console.error("Error marking experience as most meaningful:", error);
       // Return success to continue UI flow
-      return { success: true, message: 'Marking failed but UI updated' };
+      return { success: true, message: "Marking failed but UI updated" };
     }
   },
-  
+
   // Parse CV and extract experiences
   parseCV: async (file) => {
     try {
       const formData = new FormData();
-      formData.append('cv', file);
-      
-      console.log('Uploading CV file for experience parsing:', file.name, file.type, file.size);
-      
+      formData.append("cv", file);
+
+      console.log(
+        "Uploading CV file for experience parsing:",
+        file.name,
+        file.type,
+        file.size
+      );
+
       // Get auth token
       const token = getAuthToken();
       const headers = {};
-      
+
       // Only add Authorization header, no Content-Type for FormData
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers["Authorization"] = `Bearer ${token}`;
         console.log("Added Authorization header for CV upload");
       }
-      
+
       // Note: This endpoint may not exist on the backend
       return await safeFetch(`${API_URL}/experiences/parse-cv`, {
-        method: 'POST',
+        method: "POST",
         body: formData,
-        headers
+        headers,
       });
     } catch (error) {
-      console.error('CV upload error for experiences:', error);
+      console.error("CV upload error for experiences:", error);
       // Instead of throwing, return null to indicate failure
       // This allows the component to fall back to local parsing
       return null;
     }
   },
-  
+
   // Save multiple experiences at once
   saveMultiple: async (experiences) => {
     try {
       return await safeFetch(`${API_URL}/experiences/bulk`, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({ experiences }),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error('Error saving multiple experiences:', error);
-      
+      console.error("Error saving multiple experiences:", error);
+
       // Return mock success with temporary IDs
-      const experiencesWithIds = experiences.map(exp => ({
+      const experiencesWithIds = experiences.map((exp) => ({
         ...exp,
-        _id: 'temp_' + Date.now() + '_' + Math.floor(Math.random() * 1000)
+        _id: "temp_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
       }));
-      
-      return { 
+
+      return {
         success: true,
-        message: 'Experiences saved locally only',
-        experiences: experiencesWithIds
+        message: "Experiences saved locally only",
+        experiences: experiencesWithIds,
       };
     }
-  }
+  },
 };
 
 // Programs API
@@ -556,37 +570,37 @@ export const programs = {
   search: async (params) => {
     const queryString = new URLSearchParams(params).toString();
     return await safeFetch(`${API_URL}/programs/search?${queryString}`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Get single program
   get: async (id) => {
     return await safeFetch(`${API_URL}/programs/${id}`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Save program to favorites
   saveToFavorites: async (id) => {
     return await safeFetch(`${API_URL}/programs/${id}/favorite`, {
-      method: 'PUT'
+      method: "PUT",
     });
   },
-  
+
   // Remove program from favorites
   removeFromFavorites: async (id) => {
     return await safeFetch(`${API_URL}/programs/${id}/favorite`, {
-      method: 'DELETE'
+      method: "DELETE",
     });
   },
-  
+
   // Get favorite programs
   getFavorites: async () => {
     return await safeFetch(`${API_URL}/programs/favorites`, {
-      method: 'GET'
+      method: "GET",
     });
-  }
+  },
 };
 
 // Miscellaneous Questions API
@@ -594,27 +608,27 @@ export const miscQuestions = {
   // Get all user's misc questions
   getAll: async () => {
     return await safeFetch(`${API_URL}/misc-questions`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Save misc questions
   save: async (data) => {
     return await safeFetch(`${API_URL}/misc-questions`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Generate answer with AI
   generateAnswer: async (questionId, prompt) => {
     return await safeFetch(`${API_URL}/misc-questions/${questionId}/generate`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ prompt }),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
-  }
+  },
 };
 
 // Applications API
@@ -622,55 +636,55 @@ export const applications = {
   // Get all applications
   getAll: async () => {
     return await safeFetch(`${API_URL}/applications`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Get single application
   get: async (id) => {
     return await safeFetch(`${API_URL}/applications/${id}`, {
-      method: 'GET'
+      method: "GET",
     });
   },
-  
+
   // Create new application
   create: async (data) => {
     return await safeFetch(`${API_URL}/applications`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Update application
   update: async (id, data) => {
     return await safeFetch(`${API_URL}/applications/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Delete application
   delete: async (id) => {
     return await safeFetch(`${API_URL}/applications/${id}`, {
-      method: 'DELETE'
+      method: "DELETE",
     });
   },
-  
+
   // Submit application
   submit: async (id) => {
     return await safeFetch(`${API_URL}/applications/${id}/submit`, {
-      method: 'PUT'
+      method: "PUT",
     });
   },
-  
+
   // Get application status
   getStatus: async (id) => {
     return await safeFetch(`${API_URL}/applications/${id}/status`, {
-      method: 'GET'
+      method: "GET",
     });
-  }
+  },
 };
 
 // OpenAI API for Personal Statements
@@ -678,18 +692,18 @@ export const openai = {
   // Generate thesis statements
   generateThesisStatements: async (data) => {
     return await safeFetch(`${API_URL}/openai/thesis-statements`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   },
-  
+
   // Generate complete personal statement
   generatePersonalStatement: async (data) => {
     return await safeFetch(`${API_URL}/openai/personal-statement`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
-  }
-}; 
+  },
+};

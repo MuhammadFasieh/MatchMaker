@@ -1,16 +1,16 @@
-const ResearchProduct = require('../models/ResearchProduct');
-const User = require('../models/User');
-const PersonalStatement = require('../models/PersonalStatement');
-const Experience = require('../models/Experience');
-const MiscellaneousQuestion = require('../models/MiscellaneousQuestion');
-const ProgramPreference = require('../models/ProgramPreference');
-const { extractResearchProducts } = require('../services/cvParsingService');
-const { enrichResearchProduct } = require('../services/pubmedService');
-const fs = require('fs');
-const util = require('util');
+const ResearchProduct = require("../models/ResearchProduct");
+const User = require("../models/User");
+const PersonalStatement = require("../models/PersonalStatement");
+const Experience = require("../models/Experience");
+const MiscellaneousQuestion = require("../models/MiscellaneousQuestion");
+const ProgramPreference = require("../models/ProgramPreference");
+const { extractResearchProducts } = require("../services/cvParsingService");
+const { enrichResearchProduct } = require("../services/pubmedService");
+const fs = require("fs");
+const util = require("util");
 const readFile = util.promisify(fs.readFile);
-const pdf = require('pdf-parse');
-const { uploadToS3 } = require('../config/aws');
+const pdf = require("pdf-parse");
+const { uploadToS3 } = require("../config/aws");
 
 // Get all research products for a user
 exports.getResearchProducts = async (req, res) => {
@@ -22,14 +22,14 @@ exports.getResearchProducts = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      researchProducts
+      researchProducts,
     });
   } catch (error) {
-    console.error('Get research products error:', error);
+    console.error("Get research products error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Server error retrieving research products',
-      error: error.message
+      message: "Server error retrieving research products",
+      error: error.message,
     });
   }
 };
@@ -44,7 +44,7 @@ exports.parseCV = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'No CV file provided'
+        message: "No CV file provided",
       });
     }
 
@@ -52,43 +52,43 @@ exports.parseCV = async (req, res) => {
       filename: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      path: req.file.path
+      path: req.file.path,
     });
 
     // Get the file path
     const filePath = req.file.path;
-      
+
     // Validate file exists
     if (!fs.existsSync(filePath)) {
-      console.error('File not found at path:', filePath);
+      console.error("File not found at path:", filePath);
       return res.status(500).json({
         success: false,
-        message: 'Error: File not found after upload'
+        message: "Error: File not found after upload",
       });
     }
 
     // Read the file content
     let cvText;
     try {
-    if (req.file.mimetype === 'application/pdf') {
+      if (req.file.mimetype === "application/pdf") {
         // Read PDF file
         const dataBuffer = await readFile(filePath);
         const data = await pdf(dataBuffer);
         cvText = data.text;
-        
+
         if (!cvText || cvText.trim().length === 0) {
-          throw new Error('No text content extracted from PDF');
+          throw new Error("No text content extracted from PDF");
         }
-    } else {
-      // For text files
-        cvText = await readFile(filePath, 'utf8');
+      } else {
+        // For text files
+        cvText = await readFile(filePath, "utf8");
       }
     } catch (readError) {
-      console.error('Error reading file:', readError);
+      console.error("Error reading file:", readError);
       return res.status(500).json({
         success: false,
-        message: 'Error reading file content',
-        error: readError.message
+        message: "Error reading file content",
+        error: readError.message,
       });
     }
 
@@ -96,16 +96,16 @@ exports.parseCV = async (req, res) => {
     let extractedProducts;
     try {
       extractedProducts = await extractResearchProducts(cvText);
-      
+
       if (!extractedProducts || !Array.isArray(extractedProducts)) {
-        throw new Error('Invalid response from research product extraction');
+        throw new Error("Invalid response from research product extraction");
       }
     } catch (extractError) {
-      console.error('Error extracting research products:', extractError);
+      console.error("Error extracting research products:", extractError);
       return res.status(500).json({
         success: false,
-        message: 'Error extracting research products from CV',
-        error: extractError.message
+        message: "Error extracting research products from CV",
+        error: extractError.message,
       });
     }
 
@@ -115,31 +115,31 @@ exports.parseCV = async (req, res) => {
       try {
         // Enrich with PubMed data
         const enrichedProduct = await enrichResearchProduct(product);
-        
+
         // Save to database
         const savedProduct = await ResearchProduct.create({
-        userId,
-          ...enrichedProduct
+          userId,
+          ...enrichedProduct,
         });
-        
+
         savedProducts.push(savedProduct);
       } catch (productError) {
-        console.error('Error processing individual product:', productError);
+        console.error("Error processing individual product:", productError);
         // Continue with other products even if one fails
       }
     }
 
     return res.status(200).json({
       success: true,
-      message: 'CV parsed successfully',
-      data: savedProducts
+      message: "CV parsed successfully",
+      data: savedProducts,
     });
   } catch (error) {
-    console.error('Parse CV error:', error);
+    console.error("Parse CV error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Error parsing CV',
-      error: error.message
+      message: "Error parsing CV",
+      error: error.message,
     });
   }
 };
@@ -159,14 +159,14 @@ exports.addResearchProduct = async (req, res) => {
       pages,
       pmid,
       monthPublished,
-      yearPublished
+      yearPublished,
     } = req.body;
 
     // Validate required fields
     if (!title || !type || !status || !authors) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields'
+        message: "Missing required fields",
       });
     }
 
@@ -184,7 +184,7 @@ exports.addResearchProduct = async (req, res) => {
       pmid,
       monthPublished,
       yearPublished,
-      isComplete: true
+      isComplete: true,
     });
 
     // Save to database
@@ -195,15 +195,15 @@ exports.addResearchProduct = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Research product added successfully',
-      researchProduct
+      message: "Research product added successfully",
+      researchProduct,
     });
   } catch (error) {
-    console.error('Add research product error:', error);
+    console.error("Add research product error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Server error adding research product',
-      error: error.message
+      message: "Server error adding research product",
+      error: error.message,
     });
   }
 };
@@ -216,17 +216,20 @@ exports.updateResearchProduct = async (req, res) => {
     const updateData = req.body;
 
     // Find the research product
-    const researchProduct = await ResearchProduct.findOne({ _id: productId, userId });
+    const researchProduct = await ResearchProduct.findOne({
+      _id: productId,
+      userId,
+    });
     if (!researchProduct) {
       return res.status(404).json({
         success: false,
-        message: 'Research product not found'
+        message: "Research product not found",
       });
     }
 
     // Update fields
-    Object.keys(updateData).forEach(key => {
-      if (key !== 'userId' && key !== '_id') {
+    Object.keys(updateData).forEach((key) => {
+      if (key !== "userId" && key !== "_id") {
         researchProduct[key] = updateData[key];
       }
     });
@@ -236,15 +239,15 @@ exports.updateResearchProduct = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Research product updated successfully',
-      researchProduct
+      message: "Research product updated successfully",
+      researchProduct,
     });
   } catch (error) {
-    console.error('Update research product error:', error);
+    console.error("Update research product error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Server error updating research product',
-      error: error.message
+      message: "Server error updating research product",
+      error: error.message,
     });
   }
 };
@@ -256,11 +259,14 @@ exports.deleteResearchProduct = async (req, res) => {
     const productId = req.params.id;
 
     // Find and delete the research product
-    const researchProduct = await ResearchProduct.findOneAndDelete({ _id: productId, userId });
+    const researchProduct = await ResearchProduct.findOneAndDelete({
+      _id: productId,
+      userId,
+    });
     if (!researchProduct) {
       return res.status(404).json({
         success: false,
-        message: 'Research product not found'
+        message: "Research product not found",
       });
     }
 
@@ -269,14 +275,14 @@ exports.deleteResearchProduct = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Research product deleted successfully'
+      message: "Research product deleted successfully",
     });
   } catch (error) {
-    console.error('Delete research product error:', error);
+    console.error("Delete research product error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Server error deleting research product',
-      error: error.message
+      message: "Server error deleting research product",
+      error: error.message,
     });
   }
 };
@@ -286,19 +292,16 @@ exports.saveResearchProducts = async (req, res) => {
   try {
     const userId = req.user.id;
     const { products } = req.body;
-    
     if (!products || !Array.isArray(products)) {
       return res.status(400).json({
         success: false,
-        message: 'No research products provided or invalid format'
+        message: "No research products provided or invalid format",
       });
     }
-    
     // Delete existing products for this user
     await ResearchProduct.deleteMany({ userId });
-    
     // Prepare products for saving
-    const productsToSave = products.map(product => ({
+    const productsToSave = products.map((product) => ({
       userId,
       title: product.title,
       type: product.type,
@@ -312,28 +315,61 @@ exports.saveResearchProducts = async (req, res) => {
       monthPublished: product.month,
       yearPublished: product.year,
       pubmedEnriched: product.pubmedEnriched || false,
-      isComplete: product.isComplete || false
+      isComplete: product.isComplete || false,
     }));
-    
     // Save all products
     const savedProducts = await ResearchProduct.insertMany(productsToSave);
-    
     // Update user's application progress
     await updateUserProgress(userId);
-    
     return res.status(200).json({
       success: true,
       message: `${savedProducts.length} research products saved successfully`,
-      data: savedProducts
+      data: savedProducts,
     });
   } catch (error) {
-    console.error('Save research products error:', error);
+    console.error("Save research products error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Error saving research products',
-      error: error.message
+      message: "Error saving research products",
+      error: error.message,
     });
   }
+  //   try {
+  //     const userId = req.user.id;
+  //     const { products } = req.body;
+
+  //     if (!products || !Array.isArray(products)) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: "No research products provided or invalid format",
+  //       });
+  //     }
+
+  //     // Delete existing products for this user
+  //     await ResearchProduct.deleteMany({ userId });
+
+  //     // Save new products
+  //     const productsToSave = products.map((product) => ({
+  //       userId,
+  //       ...product,
+  //     }));
+  //     await ResearchProduct.insertMany(productsToSave);
+
+  //     // Update user's progress
+  //     await updateUserProgress(userId);
+
+  //     return res.status(200).json({
+  //       success: true,
+  //       message: `${products.length} research products saved successfully`,
+  //     });
+  //   } catch (error) {
+  //     console.error("Save research products error:", error);
+  //     return res.status(500).json({
+  //       success: false,
+  //       message: "Error saving research products",
+  //       error: error.message,
+  //     });
+  //   }
 };
 
 // Helper function to update user's application progress
@@ -343,10 +379,22 @@ const updateUserProgress = async (userId) => {
     if (!user) return;
 
     // Check completion of other sections
-    const personalStatementComplete = await PersonalStatement.exists({ userId, isComplete: true });
-    const experiencesComplete = await Experience.exists({ userId, isComplete: true });
-    const miscComplete = await MiscellaneousQuestion.exists({ userId, isComplete: true });
-    const programPrefsComplete = await ProgramPreference.exists({ userId, isComplete: true });
+    const personalStatementComplete = await PersonalStatement.exists({
+      userId,
+      isComplete: true,
+    });
+    const experiencesComplete = await Experience.exists({
+      userId,
+      isComplete: true,
+    });
+    const miscComplete = await MiscellaneousQuestion.exists({
+      userId,
+      isComplete: true,
+    });
+    const programPrefsComplete = await ProgramPreference.exists({
+      userId,
+      isComplete: true,
+    });
 
     // Count completed sections
     let completedSections = 1; // Research products are complete
@@ -357,17 +405,19 @@ const updateUserProgress = async (userId) => {
 
     // Update user's progress directly instead of calling calculateProgress
     const totalSections = 5; // Total number of sections
-    const percentageComplete = Math.round((completedSections / totalSections) * 100);
-    
+    const percentageComplete = Math.round(
+      (completedSections / totalSections) * 100
+    );
+
     // Update the applicationProgress field directly
     user.applicationProgress = {
       totalSections,
       completedSections,
-      percentageComplete
+      percentageComplete,
     };
-    
+
     await user.save();
   } catch (error) {
-    console.error('Update user progress error:', error);
+    console.error("Update user progress error:", error);
   }
-}; 
+};
