@@ -32,60 +32,95 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear any previous errors
 
       // Fetch dashboard data
       const dashResponse = await dashboard.getDashboardData();
       console.log("Raw dashboard response:", dashResponse);
 
-      if (dashResponse && dashResponse.success && dashResponse.dashboard) {
-        const { progress, sections, user } = dashResponse.dashboard;
-        console.log(
-          "Dashboard data fetched successfully:",
-          dashResponse.dashboard
-        );
-        console.log("User data from dashboard API:", user);
+      // Handle different response formats
+      // Sometimes it's { dashboard: {...} } and sometimes it's { data: { sections: {...}, overall: {...} } }
+      if (dashResponse) {
+        // Case 1: API returns { dashboard: {...} }
+        if (dashResponse.dashboard) {
+          const { progress, sections, user } = dashResponse.dashboard;
+          console.log("Dashboard data format 1:", dashResponse.dashboard);
+          
+          // Set user data directly from the dashboard API
+          if (user) {
+            setUserData(user);
+            console.log("Set userData state with:", user);
+          }
 
-        // CRITICAL FIX: Logging Personal Statement status specifically
-        console.log("PERSONAL STATEMENT STATUS:", sections.personalStatement);
-
-        // Set user data directly from the dashboard API
-        if (user) {
-          // Important: Set the userData state with the user object from dashboard
-          setUserData(user);
-          console.log("Set userData state with:", user);
+          // Map backend data to frontend format
+          setProgressData({
+            completedSections: progress?.completedSections || 0,
+            totalSections: progress?.totalSections || 5,
+            percentage: progress?.percentageComplete || 0,
+            dashboardUser: user, // Also set the dashboardUser property
+            sectionStatus: {
+              personalStatement: {
+                status: sections?.personalStatement?.status || "Not Started",
+                icon: getIconForStatus(sections?.personalStatement?.status || "Not Started"),
+                color: getColorForStatus(sections?.personalStatement?.status || "Not Started"),
+              },
+              research: {
+                status: sections?.researchProducts?.status || "Not Started",
+                icon: getIconForStatus(sections?.researchProducts?.status || "Not Started"),
+                color: getColorForStatus(sections?.researchProducts?.status || "Not Started"),
+              },
+              experiences: {
+                status: sections?.experiences?.status || "Not Started",
+                icon: getIconForStatus(sections?.experiences?.status || "Not Started"),
+                color: getColorForStatus(sections?.experiences?.status || "Not Started"),
+              },
+            },
+          });
+        }
+        // Case 2: API returns { data: { sections: {...}, overall: {...} } }
+        else if (dashResponse.data && dashResponse.data.sections) {
+          console.log("Dashboard data format 2:", dashResponse.data);
+          
+          const { sections, overall } = dashResponse.data;
+          
+          // Map backend data to frontend format
+          setProgressData({
+            completedSections: overall?.completedSections || 0,
+            totalSections: overall?.totalSections || 5,
+            percentage: overall?.percentageComplete || 0,
+            sectionStatus: {
+              personalStatement: {
+                status: sections?.personalStatement?.status || "Not Started",
+                icon: getIconForStatus(sections?.personalStatement?.status || "Not Started"),
+                color: getColorForStatus(sections?.personalStatement?.status || "Not Started"),
+              },
+              research: {
+                status: sections?.research?.status || "Not Started",
+                icon: getIconForStatus(sections?.research?.status || "Not Started"),
+                color: getColorForStatus(sections?.research?.status || "Not Started"),
+              },
+              experiences: {
+                status: sections?.experiences?.status || "Not Started",
+                icon: getIconForStatus(sections?.experiences?.status || "Not Started"),
+                color: getColorForStatus(sections?.experiences?.status || "Not Started"),
+              },
+            },
+          });
+        }
+        // Case 3: No dashboard data in expected format
+        else {
+          console.error("Unexpected dashboard data format:", dashResponse);
+          setError("Failed to load dashboard data: Unexpected data format");
+          setupFallbackData();
+          return;
         }
 
-        // Map backend data to frontend format
-        setProgressData({
-          completedSections: progress.completedSections || 0,
-          totalSections: progress.totalSections || 5,
-          percentage: progress.percentageComplete || 0,
-          dashboardUser: user, // Also set the dashboardUser property
-          sectionStatus: {
-            personalStatement: {
-              status: sections.personalStatement.status,
-              icon: getIconForStatus(sections.personalStatement.status),
-              color: getColorForStatus(sections.personalStatement.status),
-            },
-            research: {
-              status: sections.researchProducts.status,
-              icon: getIconForStatus(sections.researchProducts.status),
-              color: getColorForStatus(sections.researchProducts.status),
-            },
-            experiences: {
-              status: sections.experiences.status,
-              icon: getIconForStatus(sections.experiences.status),
-              color: getColorForStatus(sections.experiences.status),
-            },
-          },
-        });
-
         // If we don't have user data yet, try to fetch from profile
-        if (!user) {
+        if (!userData) {
           try {
             // Fetch user profile as a fallback
             const userResponse = await auth.getProfile();
-            if (userResponse && userResponse.success) {
+            if (userResponse && userResponse.success && userResponse.user) {
               setUserData(userResponse.user);
               console.log(
                 "User data fetched from profile API:",
@@ -108,65 +143,56 @@ export default function Dashboard() {
           // Continue even if readiness check fails
         }
       } else {
-        // If API fails, use fallback data
-        setError(
-          "Failed to load dashboard data: " +
-            (dashResponse?.message || "Unknown error")
-        );
-
-        // Use fallback data if no response
-        setProgressData({
-          completedSections: 0,
-          totalSections: 5,
-          percentage: 0,
-          sectionStatus: {
-            personalStatement: {
-              status: "Not Started",
-              icon: getIconForStatus("Not Started"),
-              color: getColorForStatus("Not Started"),
-            },
-            research: {
-              status: "Not Started",
-              icon: getIconForStatus("Not Started"),
-              color: getColorForStatus("Not Started"),
-            },
-            experiences: {
-              status: "Not Started",
-              icon: getIconForStatus("Not Started"),
-              color: getColorForStatus("Not Started"),
-            },
-          },
-        });
+        // No dashboard data in the response
+        console.error("No dashboard data in response");
+        setError("Failed to load dashboard data: No data returned");
+        
+        // Use fallback data
+        setupFallbackData();
       }
     } catch (err) {
       console.error("Error fetching data:", err);
-      setError("Failed to load dashboard data");
+      setError("Failed to load dashboard data: " + (err.message || "Unknown error"));
 
-      // Fallback data
-      setProgressData({
-        completedSections: 0,
-        totalSections: 5,
-        percentage: 0,
-        sectionStatus: {
-          personalStatement: {
-            status: "Not Started",
-            icon: getIconForStatus("Not Started"),
-            color: getColorForStatus("Not Started"),
-          },
-          research: {
-            status: "Not Started",
-            icon: getIconForStatus("Not Started"),
-            color: getColorForStatus("Not Started"),
-          },
-          experiences: {
-            status: "Not Started",
-            icon: getIconForStatus("Not Started"),
-            color: getColorForStatus("Not Started"),
-          },
-        },
-      });
+      // Use fallback data
+      setupFallbackData();
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Helper function to set up fallback data when API fails
+  const setupFallbackData = () => {
+    // Fallback data
+    setProgressData({
+      completedSections: 0,
+      totalSections: 5,
+      percentage: 0,
+      sectionStatus: {
+        personalStatement: {
+          status: "Not Started",
+          icon: getIconForStatus("Not Started"),
+          color: getColorForStatus("Not Started"),
+        },
+        research: {
+          status: "Not Started",
+          icon: getIconForStatus("Not Started"),
+          color: getColorForStatus("Not Started"),
+        },
+        experiences: {
+          status: "Not Started",
+          icon: getIconForStatus("Not Started"),
+          color: getColorForStatus("Not Started"),
+        },
+      },
+    });
+    
+    // Try to show any existing user data we might have
+    if (!userData && currentUser) {
+      setUserData({
+        name: currentUser.displayName || "Dr.",
+        email: currentUser.email || "",
+      });
     }
   };
 

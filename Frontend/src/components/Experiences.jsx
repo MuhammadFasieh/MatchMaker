@@ -1,6 +1,132 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { experiences as experiencesAPI } from '../services/api';
+import axios from 'axios';
+
+// Import API_URL from services/api
+import { API_URL } from '../services/api';
+
+function CVUploadExperienceExtractor({ onExtracted }) {
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [extracted, setExtracted] = useState(null);
+  const [showApiKeyAlert, setShowApiKeyAlert] = useState(false);
+
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+    setError('');
+    setExtracted(null);
+    setShowApiKeyAlert(false);
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Please select a PDF file.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setExtracted(null);
+    setShowApiKeyAlert(false);
+    
+    try {
+      const formData = new FormData();
+      formData.append('cv', file);
+      
+      console.log(`Uploading CV file: ${file.name} (${file.type}, ${file.size} bytes)`);
+      
+      // Use the API_URL from the services/api file
+      const res = await axios.post(`${API_URL}/cv/upload`, formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+      
+      console.log('CV upload response:', res.data);
+      
+      if (res.data.success && res.data.data && res.data.data.length > 0) {
+        console.log(`Successfully extracted ${res.data.data.length} experiences`);
+        setExtracted(res.data.data);
+        if (onExtracted) onExtracted(res.data.data);
+      } else if (res.data.success && (!res.data.data || res.data.data.length === 0)) {
+        setError('No experiences found in the uploaded CV. Please try a different file or enter your experiences manually.');
+      } else {
+        setError(res.data.message || 'Failed to extract experience data from CV.');
+      }
+    } catch (err) {
+      console.error('Error uploading CV:', err);
+      
+      // Check for specific error types from the backend
+      if (err.response?.data?.errorCode === 'INVALID_API_KEY') {
+        console.error('Invalid OpenAI API key error detected');
+        setShowApiKeyAlert(true);
+        setError('OpenAI API key is invalid or expired. The system will use placeholder data instead.');
+      } else if (err.response?.data?.errorCode === 'RATE_LIMIT_EXCEEDED') {
+        setError('AI service rate limit exceeded. Please try again later or enter your experiences manually.');
+      } else {
+        const errorMsg = err.response?.data?.message || err.message || 'Error uploading or parsing CV.';
+        setError(errorMsg);
+        
+        // Check for OpenAI-specific errors in the message
+        if (errorMsg.toLowerCase().includes('openai') || 
+            errorMsg.toLowerCase().includes('api key')) {
+          setShowApiKeyAlert(true);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ border: '1px solid #eee', padding: 16, borderRadius: 8, marginBottom: 24 }}>
+      <h3>Upload CV to Extract Experience</h3>
+      <input type="file" accept="application/pdf" onChange={handleFileChange} />
+      <button onClick={handleUpload} disabled={loading} style={{ marginLeft: 8 }}>
+        {loading ? 'Extracting...' : 'Extract Experience'}
+      </button>
+      
+      {/* API Key Alert */}
+      {showApiKeyAlert && (
+        <div style={{ 
+          backgroundColor: '#fff3cd', 
+          color: '#856404', 
+          padding: '12px', 
+          border: '1px solid #ffeeba', 
+          borderRadius: '4px', 
+          marginTop: '16px',
+          marginBottom: '16px'
+        }}>
+          <strong>OpenAI API Key Issue</strong>
+          <p>The server's OpenAI API key is invalid or expired. Please contact the administrator to update the API key.</p>
+          <p>You can still use the application with placeholder data or manually enter your experiences.</p>
+        </div>
+      )}
+      
+      {error && !showApiKeyAlert && (
+        <div style={{ color: 'red', marginTop: 8 }}>{error}</div>
+      )}
+      
+      {extracted && extracted.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <h4>Extracted Experience:</h4>
+          <ol>
+            {extracted.map((exp, idx) => (
+              <li key={idx} style={{ marginBottom: 8 }}>
+                <b>{exp.positionTitle || 'Position not found'}</b> at <b>{exp.organization || 'Organization not found'}</b><br />
+                {exp.startDate} - {exp.endDate || 'Current'}<br />
+                {exp.country} {exp.state && `, ${exp.state}`}<br />
+                <i>{exp.contextRolesResponsibilities}</i>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CombinedExperienceComponents() {
 
@@ -25,6 +151,7 @@ export default function CombinedExperienceComponents() {
   });
   const [experiences, setExperiences] = useState([]);
   const [showAlert, setShowAlert] = useState(false);
+  const [showApiKeyAlert, setShowApiKeyAlert] = useState(false);
   const fileInputRef = useRef(null);
 
   // Medical Experiences State
@@ -258,30 +385,59 @@ export default function CombinedExperienceComponents() {
     }, 100);
 
     try {
-      // Since the API endpoint is not available, only use local parsing
-      const parsed = await parseCV(file);
-      if (parsed && parsed.length > 0) {
-        // Try to save the parsed experiences to MongoDB, but don't block on failure
+      console.log(`Uploading CV file: ${file.name} (${file.type}, ${file.size} bytes)`);
+      
+      // First try using the API endpoint for CV parsing
+      const formData = new FormData();
+      formData.append('cv', file);
+      
+      // Use the API for CV parsing with authentication
+      const response = await axios.post(`${API_URL}/cv/upload`, formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+      
+      console.log('CV upload API response:', response.data);
+      
+      if (response.data.success && response.data.data && response.data.data.length > 0) {
+        // API successfully extracted experiences
+        const extractedExperiences = response.data.data;
+        console.log(`API extracted ${extractedExperiences.length} experiences`);
+        
+        // Check if these are mock/fallback experiences from an API key issue
+        if (extractedExperiences.some(exp => 
+          exp.organization?.includes('API key') || 
+          exp.organization?.includes('Mock Organization') ||
+          exp.description?.includes('API key')
+        )) {
+          console.warn('Detected fallback/mock experiences due to API key issues');
+          handleApiKeyError();
+        }
+        
+        // Try to save the parsed experiences to MongoDB
         try {
-          const result = await experiencesAPI.saveMultiple(parsed);
+          const result = await experiencesAPI.saveMultiple(extractedExperiences);
           
           // If the backend returned experiences with IDs, use those
           if (result && result.experiences && result.experiences.length > 0) {
             setExperiences(result.experiences);
             setTotalPages(result.experiences.length);
             setFormData(result.experiences[0]);
+            console.log('Saved experiences to database:', result.experiences);
           } else {
-            // Otherwise use the locally parsed experiences
-            setExperiences(parsed);
-            setTotalPages(parsed.length);
-            setFormData(parsed[0]);
+            // Otherwise use the extracted experiences
+            setExperiences(extractedExperiences);
+            setTotalPages(extractedExperiences.length);
+            setFormData(extractedExperiences[0]);
           }
         } catch (saveError) {
           console.error('Error saving parsed experiences to MongoDB:', saveError);
-          // Continue with the locally parsed experiences
-          setExperiences(parsed);
-          setTotalPages(parsed.length);
-          setFormData(parsed[0]);
+          // Continue with the extracted experiences
+          setExperiences(extractedExperiences);
+          setTotalPages(extractedExperiences.length);
+          setFormData(extractedExperiences[0]);
         }
         
         setCurrentPage(1);
@@ -293,12 +449,62 @@ export default function CombinedExperienceComponents() {
           setStage('form');
         }, 500);
       } else {
-        throw new Error('No experiences found in CV');
+        // If API extraction failed, fall back to local parsing
+        console.log('API extraction failed or returned no experiences, falling back to local parsing');
+        const parsed = await parseCV(file);
+        
+        if (parsed && parsed.length > 0) {
+          // Try to save the locally parsed experiences
+          try {
+            const result = await experiencesAPI.saveMultiple(parsed);
+            
+            if (result && result.experiences && result.experiences.length > 0) {
+              setExperiences(result.experiences);
+              setTotalPages(result.experiences.length);
+              setFormData(result.experiences[0]);
+            } else {
+              setExperiences(parsed);
+              setTotalPages(parsed.length);
+              setFormData(parsed[0]);
+            }
+          } catch (saveError) {
+            console.error('Error saving locally parsed experiences:', saveError);
+            setExperiences(parsed);
+            setTotalPages(parsed.length);
+            setFormData(parsed[0]);
+          }
+          
+          setCurrentPage(1);
+          clearInterval(interval);
+          setProgress(100);
+          
+          setTimeout(() => {
+            setStage('form');
+          }, 500);
+        } else {
+          throw new Error('No experiences found in CV');
+        }
       }
     } catch (error) {
-      console.error('Error parsing CV:', error);
+      console.error('Error processing CV:', error);
       clearInterval(interval);
-      alert('Failed to parse CV. Please try again or manually enter your experiences.');
+      
+      // Handle API key errors with specific messages
+      if (error.response?.data?.errorCode === 'INVALID_API_KEY') {
+        handleApiKeyError();
+        alert('The server\'s OpenAI API key is invalid or expired. Please contact the administrator to update the API key. You can still manually enter your experiences.');
+      } else if (error.response?.data?.errorCode === 'RATE_LIMIT_EXCEEDED') {
+        alert('AI service rate limit exceeded. Please try again later or enter your experiences manually.');
+      } else if (
+        error.response?.data?.message?.toLowerCase().includes('openai') || 
+        error.response?.data?.message?.toLowerCase().includes('api key')
+      ) {
+        handleApiKeyError();
+        alert('AI processing service is unavailable. Please try again later or manually enter your experiences.');
+      } else {
+        alert('Failed to parse CV. Please try again or manually enter your experiences.');
+      }
+      
       setStage('upload');
     }
   };
@@ -469,10 +675,83 @@ export default function CombinedExperienceComponents() {
     setStage('upload');
   };
 
+  // Add the handleExtractedExperience function
+  const handleExtractedExperience = (extractedExperiences) => {
+    if (Array.isArray(extractedExperiences) && extractedExperiences.length > 0) {
+      console.log("Extracted experiences:", extractedExperiences);
+      
+      // Map the extracted experiences to the format expected by the form
+      const formattedExperiences = extractedExperiences.map(exp => ({
+        organization: exp.organization || 'Not specified',
+        experienceType: exp.experienceType || 'Not specified',
+        positionTitle: exp.positionTitle || 'Not specified',
+        startDate: exp.startDate || 'Not specified',
+        endDate: exp.endDate || 'Not specified',
+        current: exp.isCurrent || false,
+        country: exp.country || 'Not specified',
+        state: exp.state || 'Not specified',
+        participationFrequency: exp.participationFrequency || 'Not specified',
+        setting: exp.setting || 'Not specified',
+        primaryFocusArea: exp.primaryFocusArea || 'Not specified',
+        description: exp.contextRolesResponsibilities || 'Not specified'
+      }));
+      
+      // Update state
+      setExperiences(formattedExperiences);
+      setTotalPages(formattedExperiences.length);
+      setCurrentPage(1);
+      setFormData(formattedExperiences[0]);
+      setStage('form');
+      setFileName('Extracted from CV');
+    } else {
+      console.warn("No experiences found in the extracted data");
+    }
+  };
+
+  // API Key Alert Component
+  const ApiKeyAlert = () => (
+    <div style={{ 
+      backgroundColor: '#fff3cd', 
+      color: '#856404', 
+      padding: '12px', 
+      border: '1px solid #ffeeba', 
+      borderRadius: '4px', 
+      marginBottom: '20px',
+      marginTop: '20px'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
+          <path d="M12 22C6.477 22 2 17.523 2 12C2 6.477 6.477 2 12 2C17.523 2 22 6.477 22 12C22 17.523 17.523 22 12 22ZM12 20C16.418 20 20 16.418 20 12C20 7.582 16.418 4 12 4C7.582 4 4 7.582 4 12C4 16.418 7.582 20 12 20ZM11 15H13V17H11V15ZM11 7H13V13H11V7Z" fill="#856404"/>
+        </svg>
+        <strong>OpenAI API Key Issue</strong>
+      </div>
+      <p>The server's OpenAI API key is invalid or expired. Please contact the administrator to update the API key.</p>
+      <p>You can still use the application with placeholder data or manually enter your experiences.</p>
+    </div>
+  );
+
+  // Function to handle an API key error
+  const handleApiKeyError = () => {
+    setShowApiKeyAlert(true);
+    // Show the alert for 30 seconds then hide it
+    setTimeout(() => {
+      setShowApiKeyAlert(false);
+    }, 30000);
+  };
+
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h1 className='text-center text-[36px] pt-[1rem] text-[#197EAB] font-semibold'>Experiences</h1>
-      {/* Upload Stage */}
+      
+      {/* Show API Key Alert if needed */}
+      {showApiKeyAlert && <ApiKeyAlert />}
+      
+      {/* Add the CV Upload component */}
+      <div className="my-4">
+        <CVUploadExperienceExtractor onExtracted={handleExtractedExperience} />
+      </div>
+      
+      {/* Existing upload stage */}
       {stage === 'upload' && (
         <div className="text-center bg-white p-10 rounded-3xl shadow-lg my-[4rem]">
           <h1 className="text-3xl font-semibold text-[#197EAB] mb-6">Upload Your CV</h1>

@@ -14,6 +14,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const openaiRoutes = require('./routes/openaiRoutes');
 const personalStatementRoutes = require('./routes/personalStatementRoutes');
 const researchRoutes = require('./routes/researchRoutes');
+const experienceRoutes = require('./routes/experienceRoutes');
 
 // Initialize express app
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/openai', openaiRoutes);
 app.use('/api/personal-statement', personalStatementRoutes);
 app.use('/api/research', researchRoutes);
+app.use('/api/experiences', experienceRoutes);
 
 // Root route
 app.get('/', (req, res) => {

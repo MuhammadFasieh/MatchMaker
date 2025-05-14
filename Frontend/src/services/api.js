@@ -3,7 +3,7 @@
  */
 
 // Base API URL - will use relative URL when deployed together
-const API_URL = "http://localhost:5001/api";
+export const API_URL = "http://localhost:5000/api";
 
 // Helper function to handle fetch responses
 const handleResponse = async (response) => {
@@ -32,10 +32,12 @@ const handleResponse = async (response) => {
 // Get the auth token from localStorage
 const getAuthToken = () => {
   const token = localStorage.getItem("token");
-  console.log(
-    "Auth token retrieved from localStorage:",
-    token ? "exists" : "not found"
-  );
+  // Use a more concise log to avoid token leakage in console
+  const tokenStatus = token ? 
+    `${token.substr(0, 10)}...${token.substr(-5)} (${token.length} chars)` : 
+    "not found";
+  
+  console.log(`Auth token: ${tokenStatus}`);
   return token;
 };
 
@@ -51,9 +53,9 @@ const getAuthHeaders = (isFormData = false) => {
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
-    console.log("Added Authorization header with Bearer token");
+    console.log("✅ Authorization header added");
   } else {
-    console.warn("No token available for Authorization header");
+    console.warn("⚠️ No token available for Authorization header");
   }
 
   return headers;
@@ -83,11 +85,29 @@ const safeFetch = async (url, options = {}) => {
   }
 
   try {
-    console.log(`Fetching ${url}...`, options);
+    console.log(`Fetching ${url}...`);
     const response = await fetch(url, options);
     console.log(`Response status from ${url}:`, response.status);
+    
+    // Special handling for 304 Not Modified responses
+    if (response.status === 304) {
+      console.log("304 Not Modified response, returning cached data");
+      return { success: true, data: { cached: true } };
+    }
+    
     return await handleResponse(response);
   } catch (error) {
+    // Don't throw error for CORS preflight issues or network errors
+    // This would cause logout cascade on temporary network issues
+    if (error.message && (
+      error.message.includes("Failed to fetch") || 
+      error.message.includes("NetworkError") ||
+      error.message.includes("Network Error")
+    )) {
+      console.warn(`Network error for ${url}, keeping authentication state:`, error);
+      return { success: false, error: "Network error", message: error.message, networkError: true };
+    }
+    
     console.error(`API Error (${url}):`, error);
     throw error;
   }

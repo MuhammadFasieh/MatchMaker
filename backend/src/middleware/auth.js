@@ -44,7 +44,16 @@ exports.protect = asyncHandler(async (req, res, next) => {
     }
     
     console.log(`User authenticated: ${user.firstName} ${user.lastName} (${user.email})`);
+    
+    // Set both user object and userId for all routes to use
     req.user = user;
+    req.userId = decoded.id;
+    
+    // Also set userId as string for easier use in MongoDB queries
+    if (user._id) {
+      req.userId = user._id.toString();
+      console.log(`User ID set on request: ${req.userId}`);
+    }
 
     next();
   } catch (err) {

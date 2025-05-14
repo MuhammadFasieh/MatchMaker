@@ -47,12 +47,16 @@ const auth = require('./src/routes/auth');
 const profile = require('./src/routes/profile');
 const dashboard = require('./src/routes/dashboard');
 const application = require('./src/routes/application');
+const experienceRoutes = require('./src/routes/experienceRoutes');
+const cvRoutes = require('./src/routes/cvRoutes');
 
 // Mount routers
 app.use('/api/auth', auth);
 app.use('/api/profile', profile);
 app.use('/api/dashboard', dashboard);
 app.use('/api/application', application);
+app.use('/api/experiences', experienceRoutes);
+app.use('/api/cv', cvRoutes);
 
 // Basic health check route
 app.get('/health', (req, res) => {
