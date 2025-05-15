@@ -103,4 +103,44 @@ exports.generatePersonalStatement = async (req, res) => {
       message: error.message || 'Error generating personal statement'
     });
   }
+};
+
+/**
+ * Generate enhanced descriptions for meaningful experiences
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.enhanceExperiences = async (req, res) => {
+  try {
+    const { experiences, instructions } = req.body;
+
+    // Validate required fields
+    if (!experiences || !Array.isArray(experiences) || experiences.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Must provide at least one experience to enhance'
+      });
+    }
+
+    if (!instructions || typeof instructions !== 'string' || instructions.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Must provide enhancement instructions'
+      });
+    }
+
+    // Call OpenAI service to enhance the experiences
+    const enhancedExperiences = await openaiService.enhanceExperiences(experiences, instructions);
+
+    res.status(200).json({
+      success: true,
+      enhancedExperiences
+    });
+  } catch (error) {
+    console.error('Error in enhanceExperiences controller:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error enhancing experiences'
+    });
+  }
 }; 

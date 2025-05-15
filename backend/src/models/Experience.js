@@ -76,6 +76,35 @@ const ExperienceSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  // Enable virtuals and format dates properly
+  toJSON: {
+    virtuals: true,
+    transform: function(doc, ret) {
+      // Format startDate if it exists
+      if (ret.startDate) {
+        const date = new Date(ret.startDate);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        ret.startDate = `${month}/${day}/${year}`;
+      }
+      
+      // Format endDate if it exists and isCurrent is false
+      if (ret.endDate && !ret.isCurrent) {
+        const date = new Date(ret.endDate);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        ret.endDate = `${month}/${day}/${year}`;
+      } else if (ret.isCurrent) {
+        // If current is true, set endDate to "Present"
+        ret.endDate = "Present";
+      }
+      
+      return ret;
+    }
+  }
 });
 
 // Pre-update hook

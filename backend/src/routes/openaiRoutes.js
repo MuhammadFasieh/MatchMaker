@@ -15,4 +15,7 @@ router.post('/thesis-statements', openaiController.generateThesisStatements);
 // Generate complete personal statement
 router.post('/personal-statement', openaiController.generatePersonalStatement);
 
+// Generate enhanced descriptions for meaningful experiences
+router.post('/enhance-experiences', openaiController.enhanceExperiences);
+
 module.exports = router; 

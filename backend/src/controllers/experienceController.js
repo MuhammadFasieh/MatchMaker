@@ -111,8 +111,8 @@ exports.parseCV = async (req, res) => {
     for (const exp of extractedExperiences) {
       try {
       const startDate = exp.startDate ? new Date(exp.startDate) : new Date();
-      const endDate = exp.endDate && exp.endDate !== 'Current' ? new Date(exp.endDate) : null;
-        const isCurrent = !endDate || exp.endDate === 'Current';
+      const endDate = exp.endDate && exp.endDate !== 'Current' && exp.endDate !== 'Present' ? new Date(exp.endDate) : null;
+        const isCurrent = !endDate || exp.endDate === 'Current' || exp.endDate === 'Present' || exp.isCurrent === true;
 
       const newExperience = new Experience({
         userId,

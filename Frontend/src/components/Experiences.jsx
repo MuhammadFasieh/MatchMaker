@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { experiences as experiencesAPI } from '../services/api';
+import { openai as openaiAPI } from '../services/api';
 import axios from 'axios';
 
 // Import API_URL from services/api
@@ -161,6 +162,16 @@ export default function CombinedExperienceComponents() {
   );
   const [charCount, setCharCount] = useState(231);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  // Add state for saved experiences
+  const [savedExperiences, setSavedExperiences] = useState([]);
+  // Add state for AI-enhanced experiences
+  const [enhancedExperiences, setEnhancedExperiences] = useState([]);
+  // Add state for loading indicator during AI enhancement
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  // Add state for AI checkbox
+  const [useAI, setUseAI] = useState(true);
+  // Add state for when insights are generated
+  const [insightsGenerated, setInsightsGenerated] = useState(false);
 
   const medicalExperiences = [
     {
@@ -416,30 +427,26 @@ export default function CombinedExperienceComponents() {
           handleApiKeyError();
         }
         
-        // Try to save the parsed experiences to MongoDB
-        try {
-          const result = await experiencesAPI.saveMultiple(extractedExperiences);
+        // MODIFIED: Don't save to MongoDB yet, just set local state
+        // Format the extracted experiences and display them for review
+        const formattedExperiences = extractedExperiences.map(exp => {
+          // Add a temporary ID until saved
+          exp.tempId = 'temp_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
           
-          // If the backend returned experiences with IDs, use those
-          if (result && result.experiences && result.experiences.length > 0) {
-            setExperiences(result.experiences);
-            setTotalPages(result.experiences.length);
-            setFormData(result.experiences[0]);
-            console.log('Saved experiences to database:', result.experiences);
-          } else {
-            // Otherwise use the extracted experiences
-            setExperiences(extractedExperiences);
-            setTotalPages(extractedExperiences.length);
-            setFormData(extractedExperiences[0]);
+          // Format dates and set current flag if endDate is Present
+          if (exp.endDate === 'Present' || exp.isCurrent) {
+            exp.current = true;
+            exp.endDate = 'Present';
           }
-        } catch (saveError) {
-          console.error('Error saving parsed experiences to MongoDB:', saveError);
-          // Continue with the extracted experiences
-          setExperiences(extractedExperiences);
-          setTotalPages(extractedExperiences.length);
-          setFormData(extractedExperiences[0]);
-        }
+          
+          return exp;
+        });
         
+        setExperiences(formattedExperiences);
+        setTotalPages(formattedExperiences.length);
+        setFormData(formattedExperiences[0]);
+        
+        // Set current page and finish loading
         setCurrentPage(1);
         clearInterval(interval);
         setProgress(100);
@@ -454,26 +461,24 @@ export default function CombinedExperienceComponents() {
         const parsed = await parseCV(file);
         
         if (parsed && parsed.length > 0) {
-          // Try to save the locally parsed experiences
-          try {
-            const result = await experiencesAPI.saveMultiple(parsed);
+          // MODIFIED: Don't save to MongoDB yet, just set local state
+          // Format the locally parsed experiences 
+          const formattedExperiences = parsed.map(exp => {
+            // Add a temporary ID until saved
+            exp.tempId = 'temp_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
             
-            if (result && result.experiences && result.experiences.length > 0) {
-              setExperiences(result.experiences);
-              setTotalPages(result.experiences.length);
-              setFormData(result.experiences[0]);
-            } else {
-              setExperiences(parsed);
-              setTotalPages(parsed.length);
-              setFormData(parsed[0]);
+            // Format dates and set current flag if endDate is Present
+            if (exp.endDate === 'Present' || exp.isCurrent) {
+              exp.current = true;
+              exp.endDate = 'Present';
             }
-          } catch (saveError) {
-            console.error('Error saving locally parsed experiences:', saveError);
-            setExperiences(parsed);
-            setTotalPages(parsed.length);
-            setFormData(parsed[0]);
-          }
+            
+            return exp;
+          });
           
+          setExperiences(formattedExperiences);
+          setTotalPages(formattedExperiences.length);
+          setFormData(formattedExperiences[0]);
           setCurrentPage(1);
           clearInterval(interval);
           setProgress(100);
@@ -511,7 +516,23 @@ export default function CombinedExperienceComponents() {
 
   const handleFormChange = (field, value) => {
     setFormData(prev => {
-      const updated = { ...prev, [field]: value };
+      let updated = { ...prev, [field]: value };
+      
+      // Special handling for the "current" checkbox
+      if (field === 'current') {
+        if (value === true) {
+          // When current is checked, set endDate to "Present"
+          updated.endDate = "Present";
+        } else if (updated.endDate === "Present") {
+          // When unchecking current that had "Present", clear the end date
+          updated.endDate = "";
+        }
+      }
+      
+      // If setting endDate to "Present", ensure current is checked
+      if (field === 'endDate' && value === "Present") {
+        updated.current = true;
+      }
       
       const updatedExperiences = [...experiences];
       updatedExperiences[currentPage - 1] = updated;
@@ -528,43 +549,21 @@ export default function CombinedExperienceComponents() {
         throw new Error('No valid experience data to save');
       }
       
-      // Save the current experience
-      const currentExperience = experiences[currentPage - 1];
-      
-      if (!currentExperience) {
-        throw new Error('Current experience data is missing');
-      }
-      
-      // Create a copy to avoid modifying the original object
-      const experienceToSave = { ...currentExperience };
-      
-      // If the experience has an id, update it, otherwise create a new one
-      if (experienceToSave._id) {
-        const response = await experiencesAPI.update(experienceToSave._id, experienceToSave);
-        
-        // Update the experiences array with any returned data
-        if (response) {
+      // Update the current experience in the local state
           const updatedExperiences = [...experiences];
-          updatedExperiences[currentPage - 1] = { ...experienceToSave, ...response };
+      updatedExperiences[currentPage - 1] = { ...formData };
           setExperiences(updatedExperiences);
-        }
-      } else {
-        const response = await experiencesAPI.create(experienceToSave);
         
-        if (response && response._id) {
-          // Update the experiences array with the new ID
-          const updatedExperiences = [...experiences];
-          updatedExperiences[currentPage - 1] = { ...experienceToSave, _id: response._id };
-          setExperiences(updatedExperiences);
-        }
-      }
+      // Also update the savedExperiences state for the meaningful experiences section
+      setSavedExperiences(updatedExperiences);
       
-      console.log('Saved data to MongoDB:', experienceToSave);
+      // Show success message
       setShowAlert(true);
       setTimeout(() => setShowAlert(false), 3000);
+      
     } catch (error) {
-      console.error('Error saving experience:', error);
-      alert('Failed to save experience. Please try again.');
+      console.error('Error updating experience:', error);
+      alert('Failed to update experience. Please try again.');
     }
   };
 
@@ -576,7 +575,13 @@ export default function CombinedExperienceComponents() {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
       setCurrentPage(newPage);
-      setFormData(experiences[newPage - 1]);
+      
+      // Get the experience and make sure current is set properly
+      const prevExp = {...experiences[newPage - 1]};
+      if (prevExp.endDate === "Present") {
+        prevExp.current = true;
+      }
+      setFormData(prevExp);
     }
   };
 
@@ -584,18 +589,34 @@ export default function CombinedExperienceComponents() {
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
       setCurrentPage(newPage);
-      setFormData(experiences[newPage - 1]);
+      
+      // Get the experience and make sure current is set properly
+      const nextExp = {...experiences[newPage - 1]};
+      if (nextExp.endDate === "Present") {
+        nextExp.current = true;
+      }
+      setFormData(nextExp);
     }
   };
 
   const handleExperienceToggle = (id) => {
-    if (selectedExperiences.includes(id)) {
-      setSelectedExperiences(selectedExperiences.filter(expId => expId !== id));
+    // Convert id to string to ensure consistent comparison
+    const idStr = String(id);
+    
+    // Check if this ID is already in the selected experiences
+    const isSelected = selectedExperiences.some(selectedId => String(selectedId) === idStr);
+    
+    if (isSelected) {
+      // Remove from selected experiences
+      setSelectedExperiences(selectedExperiences.filter(selectedId => String(selectedId) !== idStr));
     } else {
+      // Add to selected experiences if less than 3 are selected
       if (selectedExperiences.length < 3) {
         setSelectedExperiences([...selectedExperiences, id]);
       }
     }
+    
+    console.log(`Toggled experience ${id}, now selected: ${!isSelected}`);
   };
 
   const handleTextAreaChange = (e) => {
@@ -606,48 +627,232 @@ export default function CombinedExperienceComponents() {
 
   const handleSaveMedicalExperiences = async () => {
     try {
+      setIsEnhancing(false);
+      
+      // Create a reference to the meaningful experiences
       const medicalFormData = {
         selectedExperiences,
         expansionNotes
       };
       
-      // Check if we're using predefined medical experiences
-      const isUsingPredefined = selectedExperiences.some(id => 
-        medicalExperiences.some(exp => exp.id === id)
-      );
+      console.log('Medical experiences selected:', medicalFormData);
       
-      // Only try to mark experiences if we're not using predefined ones and there are IDs
-      if (!isUsingPredefined && selectedExperiences.length > 0) {
-        // Mark selected experiences as most meaningful
-        for (const expId of selectedExperiences) {
-          if (expId) {
-            try {
-              await experiencesAPI.markMostMeaningful(expId);
+      // If AI is not checked, save immediately
+      if (!useAI) {
+        await saveAllExperiences();
+      } else {
+        // Otherwise, generate insights first
+        await generateAIInsights();
+      }
             } catch (error) {
-              console.warn(`Could not mark experience ${expId} as meaningful:`, error);
+      console.error('Error processing meaningful experiences:', error);
+      alert('Failed to process experiences. Please try again.');
+      setIsEnhancing(false);
+    }
+  };
+  
+  // New function to handle saving all experiences
+  const saveAllExperiences = async () => {
+    try {
+      // First save all experiences to MongoDB
+      const experiencesToSave = experiences.map(exp => {
+        const cleanExp = { ...exp };
+        delete cleanExp.tempId;
+        
+        if (cleanExp._id && cleanExp._id.toString().startsWith('temp_')) {
+          delete cleanExp._id;
+        }
+        
+        return cleanExp;
+      });
+      
+      // Save all experiences to MongoDB
+      const result = await experiencesAPI.saveMultiple(experiencesToSave);
+      
+      if (result && result.experiences && result.experiences.length > 0) {
+        // Update local experiences with the saved ones (with their MongoDB IDs)
+        setExperiences(result.experiences);
+        setSavedExperiences(result.experiences);
+        
+        // Update the form data with the current page's experience
+        if (currentPage <= result.experiences.length) {
+          setFormData(result.experiences[currentPage - 1]);
+        }
+        
+        console.log('All experiences saved to MongoDB:', result.experiences);
+        
+        // Now explicitly mark selected experiences as meaningful using dedicated endpoint
+        for (const selectedId of selectedExperiences) {
+          // Find the corresponding saved experience with real MongoDB ID
+          const savedExp = result.experiences.find(exp => {
+            // If selectedId is from a previously saved experience, it will match _id
+            if (String(exp._id) === String(selectedId)) {
+              return true;
+            }
+            
+            // If selectedId is from a temporary ID, try to match by organization and position
+            const tempExp = experiences.find(e => 
+              (e._id === selectedId || e.tempId === selectedId) && 
+              e.organization === exp.organization && 
+              e.positionTitle === exp.positionTitle
+            );
+            return !!tempExp;
+          });
+          
+          if (savedExp && savedExp._id) {
+            console.log(`Explicitly marking experience as meaningful: ${savedExp._id} (${savedExp.organization})`);
+            try {
+              // Make a direct API call to mark this experience as meaningful
+              await experiencesAPI.markMostMeaningful(savedExp._id);
+            } catch (markError) {
+              console.error(`Failed to mark experience ${savedExp._id} as meaningful:`, markError);
             }
           }
         }
       }
       
-      console.log('Medical experiences form data saved:', medicalFormData);
-      
+      // Show success message
       setShowAlert(true);
-      
       setTimeout(() => {
         setShowAlert(false);
       }, 3000);
       
       setFormSubmitted(true);
+      
     } catch (error) {
-      console.error('Error saving meaningful experiences:', error);
-      alert('Failed to save meaningful experiences. Please try again.');
+      console.error('Error saving experiences:', error);
+      alert('Failed to save experiences. Please try again.');
+    }
+  };
+  
+  // New function to generate AI insights
+  const generateAIInsights = async () => {
+    try {
+      setIsEnhancing(true);
+      
+      // First save all experiences to MongoDB to ensure they have IDs
+      const experiencesToSave = experiences.map(exp => {
+        const cleanExp = { ...exp };
+        delete cleanExp.tempId;
+        
+        if (cleanExp._id && cleanExp._id.toString().startsWith('temp_')) {
+          delete cleanExp._id;
+        }
+        
+        return cleanExp;
+      });
+      
+      // Save all experiences to MongoDB
+      const result = await experiencesAPI.saveMultiple(experiencesToSave);
+      
+      if (result && result.experiences && result.experiences.length > 0) {
+        // Update local experiences with the saved ones (with their MongoDB IDs)
+        setExperiences(result.experiences);
+        setSavedExperiences(result.experiences);
+        
+        // Mark selected experiences as meaningful
+        for (const selectedId of selectedExperiences) {
+          // Find the corresponding saved experience with real MongoDB ID
+          const savedExp = result.experiences.find(exp => {
+            // If selectedId is from a previously saved experience, it will match _id
+            if (String(exp._id) === String(selectedId)) {
+              return true;
+            }
+            
+            // If selectedId is from a temporary ID, try to match by organization and position
+            const tempExp = experiences.find(e => 
+              (e._id === selectedId || e.tempId === selectedId) && 
+              e.organization === exp.organization && 
+              e.positionTitle === exp.positionTitle
+            );
+            return !!tempExp;
+          });
+          
+          if (savedExp && savedExp._id) {
+            console.log(`Explicitly marking experience as meaningful: ${savedExp._id} (${savedExp.organization})`);
+            try {
+              // Make a direct API call to mark this experience as meaningful
+              await experiencesAPI.markMostMeaningful(savedExp._id);
+            } catch (markError) {
+              console.error(`Failed to mark experience ${savedExp._id} as meaningful:`, markError);
+            }
+          }
+        }
+        
+        // Fetch the experiences again to make sure we have the updated isMostMeaningful flags
+        try {
+          const updatedExperiences = await experiencesAPI.getAll();
+          if (updatedExperiences && updatedExperiences.length > 0) {
+            setExperiences(updatedExperiences);
+            setSavedExperiences(updatedExperiences);
+            
+            // Check which experiences are now marked as meaningful
+            const meaningful = updatedExperiences.filter(exp => exp.isMostMeaningful);
+            console.log('Experiences now marked as most meaningful:', meaningful);
+            
+            // Generate AI-powered insights for the meaningful experiences if there are expansion notes
+            if (meaningful.length > 0 && expansionNotes.trim()) {
+              try {
+                // Generate AI-powered insights for the meaningful experiences
+                const enhancementResult = await openaiAPI.enhanceExperiences(
+                  meaningful,
+                  expansionNotes
+                );
+                
+                if (enhancementResult && enhancementResult.enhancedExperiences) {
+                  console.log('AI enhanced experiences:', enhancementResult.enhancedExperiences);
+                  setEnhancedExperiences(enhancementResult.enhancedExperiences);
+                  
+                  // Save the enhanced descriptions back to the experiences
+                  for (const enhanced of enhancementResult.enhancedExperiences) {
+                    if (enhanced._id && enhanced.expandedDescription) {
+                      try {
+                        await experiencesAPI.update(enhanced._id, {
+                          expandedDescription: enhanced.expandedDescription
+                        });
+                      } catch (updateError) {
+                        console.error(`Failed to save enhanced description for ${enhanced._id}:`, updateError);
+                      }
+                    }
+                  }
+                  
+                  // Set flag that insights were generated
+                  setInsightsGenerated(true);
+                  setFormSubmitted(true);
+                }
+              } catch (enhanceError) {
+                console.error('Error generating AI insights:', enhanceError);
+                // If AI fails, still show the form as submitted but without AI content
+                setFormSubmitted(true);
+              }
+            } else {
+              // If no expansion notes, clear any previous enhanced experiences
+              setEnhancedExperiences([]);
+              setFormSubmitted(true);
+            }
+          }
+        } catch (fetchError) {
+          console.error('Error fetching updated experiences:', fetchError);
+          setFormSubmitted(true);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error generating insights:', error);
+      alert('Failed to generate insights. Please try again.');
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
   useEffect(() => {
     if (experiences.length > 0 && currentPage <= experiences.length) {
-      setFormData(experiences[currentPage - 1]);
+      // Update formData and explicitly set current flag based on endDate
+      const currentExp = experiences[currentPage - 1];
+      if (currentExp.endDate === "Present") {
+        currentExp.current = true;
+      }
+      setFormData(currentExp);
     }
   }, [currentPage, experiences]);
 
@@ -657,9 +862,71 @@ export default function CombinedExperienceComponents() {
         const response = await experiencesAPI.getAll();
         
         if (response && response.length > 0) {
-          setExperiences(response);
-          setTotalPages(response.length);
-          setFormData(response[0]);
+          // Format dates and handle current flag for loaded experiences
+          const formattedExperiences = response.map(exp => {
+            // Format dates similar to handleExtractedExperience
+            let startDateFormatted = exp.startDate;
+            let endDateFormatted = exp.endDate;
+            let isCurrent = exp.isCurrent || false;
+            
+            // Set current flag and endDate to Present if applicable
+            if (endDateFormatted && typeof endDateFormatted === 'string' && 
+                endDateFormatted.toLowerCase() === 'present') {
+              isCurrent = true;
+            }
+
+            // Format startDate if it's in ISO format
+            if (startDateFormatted && startDateFormatted.includes('T')) {
+              const date = new Date(startDateFormatted);
+              if (!isNaN(date.getTime())) {
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const year = date.getFullYear();
+                startDateFormatted = `${month}/${day}/${year}`;
+              }
+            }
+            
+            // Format endDate if it's in ISO format and not current
+            if (endDateFormatted && endDateFormatted.includes('T') && !isCurrent) {
+              const date = new Date(endDateFormatted);
+              if (!isNaN(date.getTime())) {
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const year = date.getFullYear();
+                endDateFormatted = `${month}/${day}/${year}`;
+              }
+            } else if (isCurrent) {
+              endDateFormatted = 'Present';
+            }
+            
+            // Return with current explicitly set to true if endDate is Present
+            return {
+              ...exp,
+              startDate: startDateFormatted,
+              endDate: endDateFormatted,
+              current: isCurrent || endDateFormatted === 'Present'
+            };
+          });
+          
+          // Ensure the first experience has current set correctly before setting form data
+          if (formattedExperiences[0] && formattedExperiences[0].endDate === 'Present') {
+            formattedExperiences[0].current = true;
+          }
+          
+          setExperiences(formattedExperiences);
+          // Also set saved experiences for the meaningful experiences section
+          setSavedExperiences(formattedExperiences);
+          
+          // Check for any experiences already marked as most meaningful
+          const meaningfulExperiences = formattedExperiences.filter(exp => exp.isMostMeaningful);
+          if (meaningfulExperiences.length > 0) {
+            // Set the selected experiences based on what was previously marked
+            setSelectedExperiences(meaningfulExperiences.map(exp => exp._id));
+            setFormSubmitted(true); // Show the selected experiences section
+          }
+          
+          setTotalPages(formattedExperiences.length);
+          setFormData(formattedExperiences[0]);
           setCurrentPage(1);
           setStage('form');
         }
@@ -681,25 +948,80 @@ export default function CombinedExperienceComponents() {
       console.log("Extracted experiences:", extractedExperiences);
       
       // Map the extracted experiences to the format expected by the form
-      const formattedExperiences = extractedExperiences.map(exp => ({
-        organization: exp.organization || 'Not specified',
-        experienceType: exp.experienceType || 'Not specified',
-        positionTitle: exp.positionTitle || 'Not specified',
-        startDate: exp.startDate || 'Not specified',
-        endDate: exp.endDate || 'Not specified',
-        current: exp.isCurrent || false,
-        country: exp.country || 'Not specified',
-        state: exp.state || 'Not specified',
-        participationFrequency: exp.participationFrequency || 'Not specified',
-        setting: exp.setting || 'Not specified',
-        primaryFocusArea: exp.primaryFocusArea || 'Not specified',
-        description: exp.contextRolesResponsibilities || 'Not specified'
-      }));
+      const formattedExperiences = extractedExperiences.map(exp => {
+        // Format date handling and current flag
+        let startDateFormatted = exp.startDate;
+        let endDateFormatted = exp.endDate;
+        let isCurrent = exp.isCurrent || false;
+        
+        // Check if endDate is "Present" to set current flag
+        if (exp.endDate && typeof exp.endDate === 'string' && 
+           (exp.endDate.toLowerCase() === 'present' || 
+            exp.endDate.toLowerCase() === 'current' || 
+            exp.endDate.toLowerCase() === 'now')) {
+          isCurrent = true;
+          endDateFormatted = 'Present';
+        } else if (exp.isCurrent) {
+          isCurrent = true;
+          endDateFormatted = 'Present';
+        }
+        
+        // Format startDate if it's in ISO format (from API)
+        if (startDateFormatted && startDateFormatted.includes('T')) {
+          const date = new Date(startDateFormatted);
+          if (!isNaN(date.getTime())) {
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const year = date.getFullYear();
+            startDateFormatted = `${month}/${day}/${year}`;
+          }
+        }
+        
+        // Format endDate if it's in ISO format and not "Present"
+        if (endDateFormatted && endDateFormatted.includes('T') && !isCurrent) {
+          const date = new Date(endDateFormatted);
+          if (!isNaN(date.getTime())) {
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const year = date.getFullYear();
+            endDateFormatted = `${month}/${day}/${year}`;
+          }
+        }
+        
+        // Always ensure current is true when endDate is Present
+        if (endDateFormatted === 'Present') {
+          isCurrent = true;
+        }
+        
+        // Add console log to debug current flag
+        console.log(`Experience: ${exp.organization}, endDate: ${endDateFormatted}, isCurrent: ${isCurrent}`);
+        
+        return {
+          organization: exp.organization || 'Not specified',
+          experienceType: exp.experienceType || 'Not specified',
+          positionTitle: exp.positionTitle || 'Not specified',
+          startDate: startDateFormatted || 'Not specified',
+          endDate: endDateFormatted || 'Not specified',
+          current: isCurrent, // Set current checkbox based on endDate/isCurrent
+          country: exp.country || 'Not specified',
+          state: exp.state || 'Not specified',
+          participationFrequency: exp.participationFrequency || 'Not specified',
+          setting: exp.setting || 'Not specified',
+          primaryFocusArea: exp.primaryFocusArea || exp.focusArea || 'Not specified',
+          description: exp.description || exp.contextRolesResponsibilities || 'Not specified'
+        };
+      });
       
       // Update state
       setExperiences(formattedExperiences);
       setTotalPages(formattedExperiences.length);
       setCurrentPage(1);
+      
+      // Ensure current flag is explicitly set before setting formData
+      if (formattedExperiences[0] && formattedExperiences[0].endDate === 'Present') {
+        formattedExperiences[0].current = true;
+      }
+      
       setFormData(formattedExperiences[0]);
       setStage('form');
       setFileName('Extracted from CV');
@@ -1045,9 +1367,9 @@ export default function CombinedExperienceComponents() {
                 
                 <button
                   onClick={handleSaveChanges}
-                  className="bg-[#197EAB]  text-white py-2 px-6 rounded"
+                  className="bg-[#197EAB] text-white py-2 px-6 rounded"
                 >
-                  Save Changes
+                  Update Form
                 </button>
               </div>
             </div>
@@ -1058,19 +1380,37 @@ export default function CombinedExperienceComponents() {
             <h1 className="text-3xl font-medium text-[#197EAB] mb-3">Highlight Your Most Meaningful Experiences</h1>
             <p className="text-gray-600 mb-8">Select up to 3 experiences that you feel contributed most to your life and career</p>
             
+            {/* Add info alert */}
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0 text-blue-400">
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-blue-700">
+                    Click "Save All Experiences" below to permanently save your experiences to your profile and mark your selections as most meaningful.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="text-xl font-medium mb-4">Your Selected Experiences:</h2>
+            
             {/* Checkboxes */}
             <div className="space-y-4 mb-8">
-              {medicalExperiences.map(exp => (
-                <div key={exp.id} className="flex items-center">
+              {experiences.map(exp => (
+                <div key={exp._id || exp.tempId} className="flex items-center">
                   <input
                     type="checkbox"
-                    id={exp.id}
-                    checked={selectedExperiences.includes(exp.id)}
-                    onChange={() => handleExperienceToggle(exp.id)}
+                    id={exp._id || exp.tempId}
+                    checked={selectedExperiences.includes(exp._id || exp.tempId)}
+                    onChange={() => handleExperienceToggle(exp._id || exp.tempId)}
                     className="h-5 w-5 text-[#197EAB] border-gray-300 rounded"
                   />
-                  <label htmlFor={exp.id} className="ml-3 text-lg text-gray-800">
-                    {exp.label}
+                  <label htmlFor={exp._id || exp.tempId} className="ml-3 text-lg text-gray-800">
+                    {exp.organization} – {exp.positionTitle}
                   </label>
                 </div>
               ))}
@@ -1078,6 +1418,21 @@ export default function CombinedExperienceComponents() {
             
             {/* Optional expansion textarea */}
             <div className="mb-8">
+              <div className="flex items-center mb-3">
+                <input
+                  type="checkbox"
+                  id="useAI"
+                  checked={useAI}
+                  onChange={(e) => setUseAI(e.target.checked)}
+                  className="h-5 w-5 text-[#197EAB] border-gray-300 rounded"
+                />
+                <label htmlFor="useAI" className="ml-3 text-lg text-gray-800">
+                  Generate AI-Powered Insights
+                </label>
+              </div>
+              
+              {useAI && (
+                <>
               <p className="text-gray-600 mb-3">Would you like the AI Assistant to expand on any of them? (Optional)</p>
               <textarea
                 className="w-full border border-gray-300 rounded p-4 text-gray-700 text-base leading-relaxed"
@@ -1089,6 +1444,8 @@ export default function CombinedExperienceComponents() {
               <div className="text-right text-gray-500 text-sm mt-1">
                 {charCount} / 300
               </div>
+                </>
+              )}
             </div>
             
             {/* Action buttons */}
@@ -1100,16 +1457,17 @@ export default function CombinedExperienceComponents() {
                 Re-upload CV
               </button>
               <button 
-                className="px-6 py-3 bg-[#197EAB] text-white rounded-mdfont-medium"
+                className="px-6 py-3 bg-[#197EAB] text-white rounded-md font-medium"
                 onClick={handleSaveMedicalExperiences}
+                disabled={isEnhancing}
               >
-                Save Changes
+                {isEnhancing ? 'Generating Insights...' : (useAI ? 'Generate Insights' : 'Save All Experiences')}
               </button>
             </div>
           </div>
           
-          {/* AI Insights Component */}
-          {formSubmitted && (
+          {/* AI Insights Component - Show while loading or when generated */}
+          {(formSubmitted && useAI && enhancedExperiences.length > 0) || isEnhancing ? (
             <div className="mt-16 bg-white p-8 rounded-2xl shadow-xl">
               <div className="flex items-center mb-10">
                 <svg className="w-8 h-8 mr-3 text-purple-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1120,16 +1478,36 @@ export default function CombinedExperienceComponents() {
                 <h2 className="text-3xl font-medium text-purple-700">AI-Powered Insights</h2>
               </div>
               
+              {isEnhancing ? (
+                /* Loading state inside the insights box */
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
+                  <p className="text-lg text-gray-700 mb-2">Generating insights...</p>
+                  <p className="text-sm text-gray-500">This may take a few moments</p>
+                </div>
+              ) : (
+                /* Insights content when loaded */
               <div className="space-y-12">
-                {medicalExperiences.filter(exp => selectedExperiences.includes(exp.id)).map((exp, index) => (
-                  <div key={exp.id}>
-                    <h3 className="text-xl font-medium mb-4">{index + 1}. {exp.label}</h3>
-                    <p className="text-lg text-purple-700 leading-relaxed">{exp.description}</p>
+                  {enhancedExperiences.map((exp, index) => (
+                    <div key={exp._id || index}>
+                      <h3 className="text-xl font-medium mb-4">{index + 1}. {exp.organization} – {exp.positionTitle}</h3>
+                      <p className="text-lg text-purple-700 leading-relaxed">{exp.expandedDescription}</p>
                   </div>
                 ))}
+                  
+                  {/* Save button after insights */}
+                  <div className="flex justify-center mt-10">
+                    <button 
+                      className="px-8 py-3 bg-[#197EAB] text-white rounded-md font-medium text-lg"
+                      onClick={saveAllExperiences}
+                    >
+                      Save All Experiences
+                    </button>
               </div>
             </div>
           )}
+            </div>
+          ) : null}
           
           {/* Success Alert */}
           {showAlert && (

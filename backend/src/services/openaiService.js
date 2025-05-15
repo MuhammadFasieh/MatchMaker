@@ -1,116 +1,208 @@
 /**
  * OpenAI Service - Handles integration with OpenAI API
  */
-const OpenAI = require('openai');
+const { Configuration, OpenAIApi } = require('openai');
+const config = require('../config');
+const logger = require('../utils/logger');
 
-// Initialize the OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// Configure OpenAI
+const configuration = new Configuration({
+  apiKey: config.openai.apiKey,
 });
+const openai = new OpenAIApi(configuration);
 
 /**
  * Generate thesis statements for personal statement
- * @param {Object} data - Data about the applicant and their characteristics
- * @returns {Promise<Array>} - Array of thesis statements
+ * @param {Object} data - Input data for thesis generation
+ * @returns {Array} - Array of thesis statements
  */
-const generateThesisStatements = async (data) => {
+exports.generateThesisStatements = async (data) => {
   try {
+    // Check if OpenAI API key is configured
+    if (!config.openai.apiKey) {
+      logger.error('OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured');
+    }
+
     const { specialties, reason, characteristics, experiences } = data;
+
+    const prompt = `Generate 3 different thesis statements for a medical school personal statement. 
+    The applicant is interested in ${specialties.join(', ')}. 
+    Their reason for pursuing medicine is: ${reason}. 
+    Three characteristics that define them are: ${characteristics.join(', ')}. 
+    Three meaningful experiences they've had are: ${experiences.join(', ')}.
     
-    const prompt = `
-      Generate 5 unique and compelling thesis statements for a medical residency personal statement. 
-      Each statement should be 1-2 sentences and serve as a theme for the applicant's personal statement.
-      
-      Applicant is applying for: ${specialties.join(', ')}
-      Reason for choosing this specialty: ${reason}
-      Key characteristics to highlight: ${characteristics.join(', ')}
-      
-      Experiences that demonstrate these characteristics:
-      - ${characteristics[0]}: ${experiences[0]}
-      - ${characteristics[1]}: ${experiences[1]}
-      - ${characteristics[2]}: ${experiences[2]}
-      
-      Make each thesis statement unique in approach and differentiating. Each should be concise (1-2 sentences) 
-      and convey why the applicant would be an excellent fit for the chosen specialty.
-    `;
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: "You are an expert medical school advisor helping craft compelling personal statements for residency applications." },
-        { role: "user", content: prompt }
-      ],
+    Each thesis statement should be concise (1-2 sentences), compelling, and capture the essence of why they are pursuing medicine.
+    Format the output as a JSON array of strings, with each string being a thesis statement.`;
+
+    const response = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt,
+      max_tokens: 500,
       temperature: 0.7,
-      max_tokens: 500
     });
+
+    // Parse the response text as JSON
+    const responseText = response.data.choices[0].text.trim();
+    let thesisStatements;
     
-    // Parse the response to extract the 5 thesis statements
-    const content = response.choices[0].message.content;
-    const statements = content.split(/\d+\./).filter(Boolean).map(s => s.trim());
-    
-    return statements.slice(0, 5); // Ensure we return exactly 5 statements
+    try {
+      thesisStatements = JSON.parse(responseText);
+    } catch (error) {
+      // If JSON parsing fails, try to extract statements manually
+      const statements = responseText.split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(line => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, ''));
+      
+      thesisStatements = statements.slice(0, 3);
+    }
+
+    // Ensure we have exactly 3 statements
+    if (!Array.isArray(thesisStatements) || thesisStatements.length < 3) {
+      throw new Error('Failed to generate thesis statements');
+    }
+
+    return thesisStatements.slice(0, 3);
   } catch (error) {
-    console.error('Error generating thesis statements:', error);
-    throw new Error('Failed to generate thesis statements');
+    logger.error('Error generating thesis statements:', error);
+    
+    // If OpenAI API key is invalid, return mock data
+    if (error.response?.status === 401 || error.message.includes('API key')) {
+      logger.warn('Using mock thesis statements due to API key issue');
+      return [
+        "My commitment to advancing healthcare equity through clinical research and community outreach has prepared me to become a physician who bridges the gap between medical innovation and compassionate patient care.",
+        "Through my experiences in emergency medicine and global health initiatives, I've developed a passion for addressing healthcare disparities and a determination to serve as an advocate for underserved populations.",
+        "Combining my scientific curiosity with empathetic patient interactions has solidified my desire to pursue medicine as a career where I can apply both analytical thinking and human connection to improve lives."
+      ];
+    }
+    
+    throw error;
   }
 };
 
 /**
- * Generate a complete personal statement draft
- * @param {Object} data - All data needed for the personal statement
- * @returns {Promise<String>} - Complete personal statement draft
+ * Generate complete personal statement
+ * @param {Object} data - Input data for personal statement generation
+ * @returns {String} - Generated personal statement
  */
-const generatePersonalStatement = async (data) => {
+exports.generatePersonalStatement = async (data) => {
   try {
-    const { 
-      specialties, 
-      reason, 
-      characteristics, 
-      experiences,
-      selectedThesis 
-    } = data;
+    // Check if OpenAI API key is configured
+    if (!config.openai.apiKey) {
+      logger.error('OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const { specialties, reason, characteristics, experiences, selectedThesis } = data;
+
+    const prompt = `Write a compelling medical school personal statement using the following thesis statement:
+    "${selectedThesis}"
     
-    const prompt = `
-      Write a complete personal statement for a medical residency application. 
-      The statement should be no more than 750 words and follow this structure:
-      
-      - Paragraph 1: Introduction about the applicant and their desire to apply to ${specialties.join(', ')}. 
-        Include this thesis statement: "${selectedThesis}"
-      
-      - Paragraph 2: Describe how the applicant demonstrates the characteristic "${characteristics[0]}" 
-        using this experience: "${experiences[0]}"
-      
-      - Paragraph 3: Describe how the applicant demonstrates the characteristic "${characteristics[1]}" 
-        using this experience: "${experiences[1]}"
-      
-      - Paragraph 4: Describe how the applicant demonstrates the characteristic "${characteristics[2]}" 
-        using this experience: "${experiences[2]}"
-      
-      - Paragraph 5: Conclusion showing excitement for residency and why they are an ideal candidate.
-      
-      Additional context on why they chose this specialty: "${reason}"
-      
-      Make the statement compelling, authentic, and within the 750-word limit.
-    `;
+    The applicant is interested in ${specialties.join(', ')}. 
+    Their reason for pursuing medicine is: ${reason}. 
+    Three characteristics that define them are: ${characteristics.join(', ')}. 
+    Three meaningful experiences they've had are: ${experiences.join(', ')}.
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: "You are an expert medical school advisor helping craft compelling personal statements for residency applications." },
-        { role: "user", content: prompt }
-      ],
+    The personal statement should be well-structured, engaging, and approximately 500-600 words. 
+    It should flow naturally, incorporating the thesis statement, characteristics, and experiences in a cohesive narrative.
+    The statement should demonstrate reflection, personal growth, and a clear connection to why the applicant wants to pursue medicine.`;
+
+    const response = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt,
+      max_tokens: 2000,
       temperature: 0.7,
-      max_tokens: 1500
     });
-    
-    return response.choices[0].message.content.trim();
+
+    const personalStatement = response.data.choices[0].text.trim();
+    return personalStatement;
   } catch (error) {
-    console.error('Error generating personal statement:', error);
-    throw new Error('Failed to generate personal statement');
+    logger.error('Error generating personal statement:', error);
+    
+    // If OpenAI API key is invalid, return mock data
+    if (error.response?.status === 401 || error.message.includes('API key')) {
+      logger.warn('Using mock personal statement due to API key issue');
+      return "This is a placeholder personal statement. The OpenAI API key is invalid or not configured properly. Please contact the administrator to resolve this issue.\n\nIn a real scenario, this would be a compelling 500-600 word personal statement that incorporates your thesis statement, characteristics, and experiences in a cohesive narrative that demonstrates your reflection, personal growth, and clear connection to medicine.";
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Generate enhanced descriptions for meaningful experiences
+ * @param {Array} experiences - Array of experience objects to enhance
+ * @param {String} instructions - User instructions for enhancement
+ * @returns {Array} - Array of enhanced experience objects
+ */
+exports.enhanceExperiences = async (experiences, instructions) => {
+  try {
+    // Check if OpenAI API key is configured
+    if (!config.openai.apiKey) {
+      logger.error('OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured');
+    }
+
+    // Process each experience with OpenAI
+    const enhancedExperiences = [];
+    
+    for (const experience of experiences) {
+      const { organization, positionTitle, description, startDate, endDate, country, state } = experience;
+      
+      const prompt = `Enhance and expand on the following professional experience for a medical school application:
+
+Organization: ${organization}
+Position: ${positionTitle}
+Duration: ${startDate} - ${endDate}
+Location: ${country}${state ? ', ' + state : ''}
+Current Description: ${description}
+
+User Instructions: ${instructions}
+
+Please provide an enhanced, reflective description that:
+1. Highlights the skills and qualities demonstrated
+2. Shows personal growth and insights gained
+3. Connects the experience to the applicant's medical aspirations
+4. Is written in first person perspective
+5. Is approximately 150-200 words
+
+Return only the enhanced description text.`;
+
+      const response = await openai.createCompletion({
+        model: "text-davinci-003",
+        prompt,
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+
+      const expandedDescription = response.data.choices[0].text.trim();
+      
+      enhancedExperiences.push({
+        ...experience,
+        expandedDescription
+      });
+    }
+
+    return enhancedExperiences;
+  } catch (error) {
+    logger.error('Error enhancing experiences:', error);
+    
+    // If OpenAI API key is invalid, return mock data
+    if (error.response?.status === 401 || error.message.includes('API key')) {
+      logger.warn('Using mock enhanced experiences due to API key issue');
+      
+      return experiences.map(exp => ({
+        ...exp,
+        expandedDescription: `This is a placeholder enhanced description for my experience at ${exp.organization} as a ${exp.positionTitle}. The OpenAI API key is invalid or not configured properly. In a real scenario, this would be a compelling 150-200 word description that highlights skills, shows personal growth, and connects to my medical aspirations.`
+      }));
+    }
+    
+    throw error;
   }
 };
 
 module.exports = {
   generateThesisStatements,
-  generatePersonalStatement
+  generatePersonalStatement,
+  enhanceExperiences
 }; 

@@ -511,9 +511,18 @@ export const experiences = {
         return { success: true, message: "Marked locally only" };
       }
 
-      return await safeFetch(`${API_URL}/experiences/${id}/most-meaningful`, {
+      console.log(`Sending request to mark experience ${id} as most meaningful`);
+      
+      // Send a direct update with isMostMeaningful set to true
+      const response = await safeFetch(`${API_URL}/experiences/${id}`, {
         method: "PUT",
+        body: JSON.stringify({ isMostMeaningful: true }),
+        headers: { "Content-Type": "application/json" },
       });
+      
+      console.log(`Response from marking experience ${id} as meaningful:`, response);
+      
+      return response;
     } catch (error) {
       console.error("Error marking experience as most meaningful:", error);
       // Return success to continue UI flow
@@ -561,9 +570,33 @@ export const experiences = {
   // Save multiple experiences at once
   saveMultiple: async (experiences) => {
     try {
+      // Filter out any temporary properties before sending to the backend
+      const experiencesToSave = experiences.map(exp => {
+        // Create a clean copy without temporary properties
+        const cleanExp = { ...exp };
+        
+        // Remove temp properties not needed by the backend
+        delete cleanExp.tempId;
+        
+        // If the ID is temporary, remove it so server will generate a real one
+        if (cleanExp._id && cleanExp._id.toString().startsWith('temp_')) {
+          delete cleanExp._id;
+        }
+        
+        // Ensure isMostMeaningful is explicitly set (default to false if not present)
+        cleanExp.isMostMeaningful = cleanExp.isMostMeaningful === true;
+        
+        // Log the meaningful status
+        console.log(`API - Experience ${cleanExp.organization}: isMostMeaningful = ${cleanExp.isMostMeaningful}`);
+        
+        return cleanExp;
+      });
+      
+      console.log('Sending experiences to save:', experiencesToSave);
+      
       return await safeFetch(`${API_URL}/experiences/bulk`, {
         method: "POST",
-        body: JSON.stringify({ experiences }),
+        body: JSON.stringify({ experiences: experiencesToSave }),
         headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
@@ -572,7 +605,7 @@ export const experiences = {
       // Return mock success with temporary IDs
       const experiencesWithIds = experiences.map((exp) => ({
         ...exp,
-        _id: "temp_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+        _id: exp._id || ("temp_" + Date.now() + "_" + Math.floor(Math.random() * 1000)),
       }));
 
       return {
@@ -726,4 +759,29 @@ export const openai = {
       headers: { "Content-Type": "application/json" },
     });
   },
+  
+  // Generate enhanced descriptions for meaningful experiences
+  enhanceExperiences: async (experiences, instructions) => {
+    try {
+      console.log('Sending experiences to OpenAI for enhancement:', experiences);
+      console.log('Enhancement instructions:', instructions);
+      
+      return await safeFetch(`${API_URL}/openai/enhance-experiences`, {
+        method: "POST",
+        body: JSON.stringify({ 
+          experiences,
+          instructions
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Error enhancing experiences with OpenAI:", error);
+      // Return the original experiences if enhancement fails
+      return { 
+        success: false, 
+        message: "Failed to enhance experiences",
+        experiences 
+      };
+    }
+  }
 };
