@@ -43,7 +43,7 @@ app.use((req, res, next) => {
 });
 
 // Route files
-const auth = require('./src/routes/auth');
+const auth = require('./src/routes/authRoutes');
 const profile = require('./src/routes/profile');
 const dashboard = require('./src/routes/dashboard');
 const application = require('./src/routes/application');

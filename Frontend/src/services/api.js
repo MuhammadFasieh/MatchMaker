@@ -87,7 +87,7 @@ const safeFetch = async (url, options = {}) => {
   }
   
   try {
-    console.log(`Fetching ${url}...`, options);
+    console.log(`Fetching ${url}...`, options.method || 'GET');
     const response = await fetch(url, options);
     console.log(`Response status from ${url}:`, response.status);
     return await handleResponse(response);
@@ -101,31 +101,43 @@ const safeFetch = async (url, options = {}) => {
 export const auth = {
   // Register a new user
   register: async (userData) => {
-    // Create FormData if there are file uploads
+    // Create FormData for file uploads
     let body;
     let options = {
       method: 'POST',
       auth: false // No auth for registration
     };
     
-    if (userData.image || userData.cv) {
+    // Check if there are actual file objects (not just names)
+    const hasFiles = userData.image instanceof File || userData.cv instanceof File;
+    
+    if (hasFiles) {
+      console.log('Creating FormData for file upload');
       body = new FormData();
       
       // Add all text fields
       Object.keys(userData).forEach(key => {
-        if (userData[key] !== null && typeof userData[key] !== 'object') {
+        if (userData[key] !== null && !(userData[key] instanceof File)) {
           body.append(key, userData[key]);
         }
       });
       
-      // Add file fields
-      if (userData.image) body.append('profileImage', userData.image);
-      if (userData.cv) body.append('cv', userData.cv);
+      // Add file fields if present and they are File objects
+      if (userData.image instanceof File) {
+        console.log('Appending profile image:', userData.image.name);
+        body.append('profileImage', userData.image);
+      }
+      
+      if (userData.cv instanceof File) {
+        console.log('Appending CV:', userData.cv.name);
+        body.append('cv', userData.cv);
+      }
       
       // Don't set Content-Type header - browser will set it with boundary
-      options.headers = {};
+      // options.headers = {};
     } else {
       // JSON request
+      console.log('Using JSON for registration (no files)');
       body = JSON.stringify(userData);
       options.headers = { 'Content-Type': 'application/json' };
     }
