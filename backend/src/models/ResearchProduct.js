@@ -7,22 +7,18 @@ const ResearchProductSchema = new mongoose.Schema({
     required: true
   },
   title: {
-    type: String,
-    required: true
+    type: String
   },
   type: {
     type: String,
-    enum: ['peer-reviewed', 'non-peer-reviewed', 'poster', 'oral'],
-    required: true
+    enum: ['peer-reviewed', 'non-peer-reviewed', 'poster', 'oral']
   },
   status: {
     type: String,
-    enum: ['published', 'submitted', 'accepted'],
-    required: true
+    enum: ['published', 'submitted', 'accepted']
   },
   authors: {
-    type: String,
-    required: true
+    type: String
   },
   journal: {
     type: String,
@@ -58,7 +54,7 @@ const ResearchProductSchema = new mongoose.Schema({
   },
   isComplete: {
     type: Boolean,
-    default: false
+    default: true
   },
   createdAt: {
     type: Date,

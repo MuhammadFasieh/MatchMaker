@@ -47,12 +47,24 @@ const auth = require('./src/routes/auth');
 const profile = require('./src/routes/profile');
 const dashboard = require('./src/routes/dashboard');
 const application = require('./src/routes/application');
+const experiences = require('./src/routes/experienceRoutes');
+const research = require('./src/routes/researchRoutes');
+const openai = require('./src/routes/openaiRoutes');
+const personalStatement = require('./src/routes/personalStatementRoutes');
+const miscQuestions = require('./src/routes/miscRoutes');
+const programs = require('./src/routes/programRoutes');
 
 // Mount routers
 app.use('/api/auth', auth);
 app.use('/api/profile', profile);
 app.use('/api/dashboard', dashboard);
 app.use('/api/application', application);
+app.use('/api/experiences', experiences);
+app.use('/api/research', research);
+app.use('/api/openai', openai);
+app.use('/api/personal-statement', personalStatement);
+app.use('/api/misc-questions', miscQuestions);
+app.use('/api/programs', programs);
 
 // Basic health check route
 app.get('/health', (req, res) => {

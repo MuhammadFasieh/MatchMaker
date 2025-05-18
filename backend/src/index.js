@@ -14,6 +14,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const openaiRoutes = require('./routes/openaiRoutes');
 const personalStatementRoutes = require('./routes/personalStatementRoutes');
 const researchRoutes = require('./routes/researchRoutes');
+const experienceRoutes = require('./routes/experienceRoutes');
 
 // Initialize express app
 const app = express();
@@ -23,6 +24,13 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  console.log('Headers:', JSON.stringify(req.headers));
+  next();
+});
 
 // Serve static files if needed
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -36,6 +44,19 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/openai', openaiRoutes);
 app.use('/api/personal-statement', personalStatementRoutes);
 app.use('/api/research', researchRoutes);
+app.use('/api/experiences', experienceRoutes);
+
+// Debugging route
+app.get('/api/debug', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Debug route working',
+    routes: {
+      '/api/experiences': 'Registered',
+      '/api/experiences/parse-cv': 'Available via POST'
+    }
+  });
+});
 
 // Root route
 app.get('/', (req, res) => {

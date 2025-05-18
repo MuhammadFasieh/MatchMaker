@@ -162,29 +162,21 @@ exports.addResearchProduct = async (req, res) => {
       yearPublished
     } = req.body;
 
-    // Validate required fields
-    if (!title || !type || !status || !authors) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields'
-      });
-    }
-
-    // Create new research product
+    // Create new research product with all fields optional
     const researchProduct = new ResearchProduct({
       userId,
-      title,
-      type,
-      status,
-      authors,
-      journal,
-      volume,
-      issueNumber,
-      pages,
-      pmid,
-      monthPublished,
-      yearPublished,
-      isComplete: true
+      title: title || '',
+      type: type || 'oral', // Default to oral if not provided
+      status: status || 'published', // Default to published if not provided
+      authors: authors || '',
+      journal: journal || '',
+      volume: volume || '',
+      issueNumber: issueNumber || '',
+      pages: pages || '',
+      pmid: pmid || '',
+      monthPublished: monthPublished || '',
+      yearPublished: yearPublished || '',
+      isComplete: true // Always set to true
     });
 
     // Save to database
@@ -297,26 +289,50 @@ exports.saveResearchProducts = async (req, res) => {
     // Delete existing products for this user
     await ResearchProduct.deleteMany({ userId });
     
-    // Prepare products for saving
+    // Prepare products for saving - all products are marked as complete regardless of field values
     const productsToSave = products.map(product => ({
       userId,
-      title: product.title,
-      type: product.type,
-      status: product.status,
-      authors: product.authors,
-      journal: product.journal,
-      volume: product.volume,
-      issueNumber: product.issue,
-      pages: product.pages,
-      pmid: product.pmid,
-      monthPublished: product.month,
-      yearPublished: product.year,
+      title: product.title || '',
+      type: product.type || 'oral', // Default to oral if not provided
+      status: product.status || 'published', // Default to published if not provided
+      authors: product.authors || '',
+      journal: product.journal || '',
+      volume: product.volume || '',
+      issueNumber: product.issue || '',
+      pages: product.pages || '',
+      pmid: product.pmid || '',
+      monthPublished: product.month || '',
+      yearPublished: product.year || '',
       pubmedEnriched: product.pubmedEnriched || false,
-      isComplete: product.isComplete || false
+      isComplete: true // Always set to true regardless of field values
     }));
     
     // Save all products
     const savedProducts = await ResearchProduct.insertMany(productsToSave);
+    
+    // Update user's dashboard status directly
+    const user = await User.findById(userId);
+    if (user) {
+      // Initialize dashboard if it doesn't exist
+      if (!user.dashboard) {
+        user.dashboard = {
+          sections: {}
+        };
+      }
+
+      // Update dashboard section status
+      user.dashboard = {
+        ...user.dashboard,
+        sections: {
+          ...user.dashboard.sections,
+          researchProducts: {
+            status: 'Completed',
+            isComplete: true
+          }
+        }
+      };
+      await user.save();
+    }
     
     // Update user's application progress
     await updateUserProgress(userId);
@@ -348,26 +364,97 @@ const updateUserProgress = async (userId) => {
     const miscComplete = await MiscellaneousQuestion.exists({ userId, isComplete: true });
     const programPrefsComplete = await ProgramPreference.exists({ userId, isComplete: true });
 
+    // Research section is always complete if there are any products, regardless of field values
+    const researchProductCount = await ResearchProduct.countDocuments({ userId });
+    const researchComplete = researchProductCount > 0;
+
     // Count completed sections
-    let completedSections = 1; // Research products are complete
+    let completedSections = 0;
     if (personalStatementComplete) completedSections++;
+    if (researchComplete) completedSections++;
     if (experiencesComplete) completedSections++;
     if (miscComplete) completedSections++;
     if (programPrefsComplete) completedSections++;
 
-    // Update user's progress directly instead of calling calculateProgress
+    // Update user's progress
     const totalSections = 5; // Total number of sections
     const percentageComplete = Math.round((completedSections / totalSections) * 100);
     
-    // Update the applicationProgress field directly
+    // Update the applicationProgress field
     user.applicationProgress = {
       totalSections,
       completedSections,
       percentageComplete
     };
     
+    // Update section status in dashboard - always mark as complete if products exist
+    if (researchProductCount > 0) {
+      user.dashboard = {
+        ...user.dashboard,
+        sections: {
+          ...user.dashboard?.sections,
+          researchProducts: {
+            status: 'Completed',
+            isComplete: true
+          }
+        }
+      };
+    }
+    
     await user.save();
   } catch (error) {
     console.error('Update user progress error:', error);
+  }
+};
+
+// Complete research section
+exports.completeResearchSection = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Update user's dashboard section status
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Initialize dashboard if it doesn't exist
+    if (!user.dashboard) {
+      user.dashboard = {
+        sections: {}
+      };
+    }
+
+    // Update dashboard section status - always mark as complete
+    user.dashboard = {
+      ...user.dashboard,
+      sections: {
+        ...user.dashboard.sections,
+        researchProducts: {
+          status: 'Completed',
+          isComplete: true
+        }
+      }
+    };
+
+    await user.save();
+
+    // Update overall progress
+    await updateUserProgress(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Research section marked as complete'
+    });
+  } catch (error) {
+    console.error('Complete research section error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error completing research section',
+      error: error.message
+    });
   }
 }; 

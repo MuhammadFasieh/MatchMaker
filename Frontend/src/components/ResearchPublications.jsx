@@ -184,10 +184,12 @@ export default function ResearchPublications() {
   };
 
   const handleEditChange = (field, value) => {
-    setEditedEntry({
+    const updatedEntry = {
       ...editedEntry,
-      [field]: value
-    });
+      [field]: value,
+      isComplete: true // Always set to true regardless of which fields are filled
+    };
+    setEditedEntry(updatedEntry);
   };
 
   const handleSaveResearch = async () => {
@@ -200,11 +202,29 @@ export default function ResearchPublications() {
       
       setIsUploading(true);
       
+      // Ensure all entries are marked as complete regardless of which fields are filled
+      const entriesToSave = researchEntries.map(entry => ({
+        ...entry,
+        isComplete: true // Always set isComplete to true
+      }));
+      
       // Save all research entries to the backend
-      const response = await research.saveResearchProducts(researchEntries);
+      const response = await research.saveResearchProducts(entriesToSave);
       
       if (response.success) {
+        try {
+          // Explicitly call the complete section endpoint
+          await research.completeResearchSection();
+        } catch (completionError) {
+          console.error('Error completing research section but will continue:', completionError);
+          // Continue even if this fails
+        }
+        
         toast.success('Research entries saved successfully!');
+        // Redirect to dashboard after a short delay to allow the toast to be seen
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 1500);
       } else {
         toast.error(response.message || 'Failed to save research entries');
       }
@@ -220,16 +240,11 @@ export default function ResearchPublications() {
     const entry = researchEntries[currentEntry - 1];
     const value = entry[field] || '';
     const isPubMedEnriched = entry.pubmedEnriched && entry[field];
-    const isRequiredForType = isRequiredField(field, entry.type);
-    const isEmptyRequired = isRequiredForType && (!value || value === 'N/A');
     
     return (
       <div className="py-3 border-b border-gray-200">
-        <div className="font-bold mb-2 flex items-center">
+        <div className="font-bold mb-2">
           {label}:
-          {isRequiredForType && (
-            <span className="text-red-500 ml-1">*</span>
-          )}
         </div>
         <div className="relative">
           {editMode ? (
@@ -237,11 +252,11 @@ export default function ResearchPublications() {
               type="text"
               value={editedEntry[field] || ''}
               onChange={(e) => handleEditChange(field, e.target.value)}
-              className={`w-full p-2 border rounded ${isEmptyRequired ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+              className="w-full p-2 border rounded border-gray-300"
             />
           ) : (
-            <div className={`whitespace-pre-wrap ${isPubMedEnriched ? 'text-blue-600' : ''} ${isEmptyRequired ? 'text-red-500 bg-red-50 p-1 rounded' : ''}`}>
-              {value || 'N/A'}
+            <div className={`whitespace-pre-wrap ${isPubMedEnriched ? 'text-blue-600' : ''}`}>
+              {value || 'Not provided'}
               {isPubMedEnriched && (
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                   PubMed
@@ -252,46 +267,6 @@ export default function ResearchPublications() {
         </div>
       </div>
     );
-  };
-
-  const isRequiredField = (field, type) => {
-    // Fields required for all research products
-    const requiredForAll = ['title', 'type', 'status', 'authors'];
-    
-    // Fields required specifically for peer-reviewed and non-peer-reviewed publications
-    const requiredForPublications = ['journal', 'yearPublished'];
-    
-    if (requiredForAll.includes(field)) {
-      return true;
-    }
-    
-    if ((type === 'peer-reviewed' || type === 'non-peer-reviewed') && 
-        requiredForPublications.includes(field)) {
-      return true;
-    }
-    
-    return false;
-  };
-
-  const isEntryComplete = (entry) => {
-    if (!entry) return false;
-    
-    // Check required fields for all types
-    const requiredForAll = ['title', 'type', 'status', 'authors'];
-    const hasRequiredFields = requiredForAll.every(field => 
-      entry[field] && entry[field].toString().trim() !== ''
-    );
-    
-    // Check additional required fields for publications
-    if (hasRequiredFields && 
-        (entry.type === 'peer-reviewed' || entry.type === 'non-peer-reviewed')) {
-      const requiredForPublications = ['journal', 'yearPublished'];
-      return requiredForPublications.every(field => 
-        entry[field] && entry[field].toString().trim() !== ''
-      );
-    }
-    
-    return hasRequiredFields;
   };
 
   return (
@@ -426,11 +401,6 @@ export default function ResearchPublications() {
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center">
                   <p className="text-lg font-bold">Research Entry {currentEntry}:</p>
-                  {!isEntryComplete(researchEntries[currentEntry - 1]) && (
-                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                      Incomplete
-                    </span>
-                  )}
                 </div>
                 <button 
                   onClick={toggleEditMode} 
@@ -467,13 +437,6 @@ export default function ResearchPublications() {
               </div>
             </div>
             
-            <div className="mt-4 mb-4 p-3 bg-gray-50 rounded border-l-4 border-blue-500">
-              <h3 className="text-md font-semibold mb-2">Required Fields</h3>
-              <p className="text-sm text-gray-700">
-                Fields marked with <span className="text-red-500">*</span> are required. Fields highlighted in red are missing required information.
-              </p>
-            </div>
-            
             <div className="flex flex-col mt-8 md:flex-row md:justify-between">
               <div className="flex items-center justify-center text-gray-600 mb-4 md:mb-0">
                 <button 
@@ -504,7 +467,7 @@ export default function ResearchPublications() {
                 </button>
                 <button 
                   onClick={handleSaveResearch} 
-                  className="bg-[#197EAB] text-white py-2 px-4 rounded-md transition-colors w-full md:w-auto cursor-pointer"
+                  className="bg-[#197EAB] text-white py-2 px-4 rounded-md transition-colors w-full md:w-auto cursor-pointer hover:bg-[#156A8F]"
                 >
                   Save Changes
                 </button>

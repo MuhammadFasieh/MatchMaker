@@ -22,4 +22,7 @@ router.put('/product/:id', protect, researchController.updateResearchProduct);
 // Delete a research product
 router.delete('/product/:id', protect, researchController.deleteResearchProduct);
 
+// Complete research section
+router.post('/complete-section', protect, researchController.completeResearchSection);
+
 module.exports = router; 
