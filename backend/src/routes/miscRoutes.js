@@ -1,30 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const miscController = require('../controllers/miscController');
-const authenticate = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 // Get miscellaneous questions data
-router.get('/', authenticate, miscController.getMiscData);
+router.get('/', protect, miscController.getMiscData);
 
 // Save professionalism issues
-router.put('/professionalism', authenticate, miscController.saveProfessionalism);
+router.put('/professionalism', protect, miscController.saveProfessionalism);
 
 // Save education information
-router.put('/education', authenticate, miscController.saveEducation);
+router.put('/education', protect, miscController.saveEducation);
 
 // Add honor/award
-router.post('/honors', authenticate, miscController.addHonorAward);
+router.post('/honors', protect, miscController.addHonorAward);
 
 // Update honor/award
-router.put('/honors/:id', authenticate, miscController.updateHonorAward);
+router.put('/honors/:id', protect, miscController.updateHonorAward);
 
 // Delete honor/award
-router.delete('/honors/:id', authenticate, miscController.deleteHonorAward);
+router.delete('/honors/:id', protect, miscController.deleteHonorAward);
 
 // Save impactful experience and hobbies
-router.put('/impactful-hobbies', authenticate, miscController.saveImpactfulAndHobbies);
+router.put('/impactful-hobbies', protect, miscController.saveImpactfulAndHobbies);
 
 // Save all miscellaneous data at once
-router.post('/', authenticate, miscController.saveAllMiscData);
+router.post('/', protect, miscController.saveAllMiscData);
 
 module.exports = router; 

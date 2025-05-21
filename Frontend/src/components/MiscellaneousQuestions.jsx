@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { miscQuestions } from "../services/api";
+import { useNavigate } from "react-router-dom";
 
 export default function MiscellaneousQuestions() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
-    academicInterruptions: {
-      hasInterruptions: null,
+    professionalism: {
+      hasIssues: null,
       explanation: "",
     },
     education: {
@@ -21,22 +27,97 @@ export default function MiscellaneousQuestions() {
     hobbiesInterests: 0,
   });
 
-  const handleRadioChange = (value) => {
+  // Fetch existing miscellaneous data on component mount
+  useEffect(() => {
+    const fetchMiscData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await miscQuestions.getAll();
+        
+        if (response.success && response.miscData) {
+          // Transform backend data to match frontend structure if needed
+          const miscData = response.miscData;
+          
+          // Map backend data to our form structure
+          setFormData({
+            professionalism: miscData.professionalism || {
+              hasIssues: null,
+              explanation: "",
+            },
+            education: {
+              undergraduate: miscData.education?.undergraduate?.map(edu => ({
+                school: edu.school || "",
+                startDate: edu.startDate ? new Date(edu.startDate).toISOString().split('T')[0] : "",
+                endDate: edu.endDate ? new Date(edu.endDate).toISOString().split('T')[0] : "",
+                fieldOfStudy: edu.fieldOfStudy || "",
+              })) || [],
+              graduate: miscData.education?.graduate?.map(edu => ({
+                school: edu.school || "",
+                startDate: edu.startDate ? new Date(edu.startDate).toISOString().split('T')[0] : "",
+                endDate: edu.endDate ? new Date(edu.endDate).toISOString().split('T')[0] : "",
+                fieldOfStudy: edu.fieldOfStudy || "",
+              })) || [],
+            },
+            honorsAwards: miscData.honorsAwards?.map(honor => ({
+              title: honor.title || "",
+              date: honor.date ? new Date(honor.date).toISOString().split('T')[0] : "",
+              description: honor.description || "",
+            })) || [],
+            impactfulExperience: miscData.impactfulExperience || "",
+            hobbiesInterests: miscData.hobbiesInterests || "",
+          });
+
+          // Update character counts
+          if (miscData.honorsAwards && miscData.honorsAwards.length > 0) {
+            const lastHonor = miscData.honorsAwards[miscData.honorsAwards.length - 1];
+            setCharacterCounts(prev => ({
+              ...prev,
+              honorsDescription: lastHonor.description?.length || 0
+            }));
+          }
+          
+          if (miscData.impactfulExperience) {
+            setCharacterCounts(prev => ({
+              ...prev,
+              impactfulExperience: miscData.impactfulExperience.length
+            }));
+          }
+          
+          if (miscData.hobbiesInterests) {
+            setCharacterCounts(prev => ({
+              ...prev,
+              hobbiesInterests: miscData.hobbiesInterests.length
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching miscellaneous data:", error);
+        setError("Failed to load your data. Please refresh the page and try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMiscData();
+  }, []);
+
+  const handleProfessionalismRadioChange = (value) => {
     setFormData({
       ...formData,
-      academicInterruptions: {
-        ...formData.academicInterruptions,
-        hasInterruptions: value === "Yes",
+      professionalism: {
+        ...formData.professionalism,
+        hasIssues: value === "Yes",
       },
     });
   };
 
-  const handleTextChange = (field, value) => {
+  const handleProfessionalismTextChange = (value) => {
     setFormData({
       ...formData,
-      academicInterruptions: {
-        ...formData.academicInterruptions,
-        [field]: value,
+      professionalism: {
+        ...formData.professionalism,
+        explanation: value,
       },
     });
   };
@@ -44,7 +125,7 @@ export default function MiscellaneousQuestions() {
   const handleEducationInputChange = (type, index, field, value) => {
     const updatedEducation = [...formData.education[type]];
     if (!updatedEducation[index]) {
-      updatedEducation[index] = { school: "", dates: "", field: "" };
+      updatedEducation[index] = { school: "", startDate: "", endDate: "", fieldOfStudy: "" };
     }
     updatedEducation[index][field] = value;
 
@@ -64,8 +145,21 @@ export default function MiscellaneousQuestions() {
         ...formData.education,
         [type]: [
           ...formData.education[type],
-          { school: "", dates: "", field: "" },
+          { school: "", startDate: "", endDate: "", fieldOfStudy: "" },
         ],
+      },
+    });
+  };
+
+  const removeEducationEntry = (type, index) => {
+    const updatedEducation = [...formData.education[type]];
+    updatedEducation.splice(index, 1);
+    
+    setFormData({
+      ...formData,
+      education: {
+        ...formData.education,
+        [type]: updatedEducation,
       },
     });
   };
@@ -100,6 +194,16 @@ export default function MiscellaneousQuestions() {
     });
   };
 
+  const removeHonorEntry = (index) => {
+    const updatedHonors = [...formData.honorsAwards];
+    updatedHonors.splice(index, 1);
+    
+    setFormData({
+      ...formData,
+      honorsAwards: updatedHonors,
+    });
+  };
+
   const handleExperienceChange = (value) => {
     setFormData({
       ...formData,
@@ -122,32 +226,111 @@ export default function MiscellaneousQuestions() {
     });
   };
 
-  const handleSubmit = () => {
-    // This would typically send data to an API
-    console.log("Form data submitted:", formData);
-    alert("Data saved successfully");
+  // Convert frontend data format to backend format
+  const prepareDataForSubmission = () => {
+    // Transform education data to match backend schema
+    const transformedUndergraduate = formData.education.undergraduate.map(edu => ({
+      school: edu.school,
+      startDate: edu.startDate,
+      endDate: edu.endDate,
+      fieldOfStudy: edu.fieldOfStudy,
+    })).filter(edu => edu.school && edu.startDate && edu.endDate && edu.fieldOfStudy);
+
+    const transformedGraduate = formData.education.graduate.map(edu => ({
+      school: edu.school,
+      startDate: edu.startDate,
+      endDate: edu.endDate,
+      fieldOfStudy: edu.fieldOfStudy,
+    })).filter(edu => edu.school && edu.startDate && edu.endDate && edu.fieldOfStudy);
+
+    // Transform honors/awards to match backend schema
+    const transformedHonors = formData.honorsAwards.map(honor => ({
+      title: honor.title,
+      date: honor.date,
+      description: honor.description,
+    })).filter(honor => honor.title && honor.date && honor.description);
+
+    return {
+      professionalism: formData.professionalism,
+      education: {
+        undergraduate: transformedUndergraduate,
+        graduate: transformedGraduate,
+      },
+      honorsAwards: transformedHonors,
+      impactfulExperience: formData.impactfulExperience,
+      hobbiesInterests: formData.hobbiesInterests,
+    };
   };
 
-  const handleSaveAndContinue = () => {
-    // Logic to save form data and proceed to next section
-    console.log("Form data saved:", formData);
-    alert("Data saved successfully");
+  const handleSubmit = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      const dataToSubmit = prepareDataForSubmission();
+      
+      // Save data to backend
+      const response = await miscQuestions.save(dataToSubmit);
+      
+      if (response.success) {
+        // Navigate to dashboard after successful save
+        navigate("/dashboard");
+      } else {
+        setError("Failed to save data. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving miscellaneous data:", error);
+      setError("An error occurred while saving. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Initialize education arrays if they don't exist
-  if (!formData.education.undergraduate) {
-    formData.education.undergraduate = [];
-  }
-  if (!formData.education.graduate) {
-    formData.education.graduate = [];
+  const handleSaveAndContinue = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      const dataToSubmit = prepareDataForSubmission();
+      
+      // Save data to backend
+      const response = await miscQuestions.save(dataToSubmit);
+      
+      if (response.success) {
+        // Show success message but stay on page
+        alert("Data saved successfully!");
+      } else {
+        setError("Failed to save data. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving miscellaneous data:", error);
+      setError("An error occurred while saving. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
   }
 
   return (
     <div className="mx-[2rem]">
-        <h1 className="pt-15 text-[36px] text-[#197EAB] text-center" style={{fontWeight:500}}>Miscellaneous Questions </h1>
+      <h1 className="pt-15 text-[36px] text-[#197EAB] text-center" style={{fontWeight:500}}>Miscellaneous Questions</h1>
+      
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 max-w-[928px] mx-auto" role="alert">
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+      
       <div className="w-full max-w-[928px] mx-auto font-sans flex flex-col gap-8 mt-[3rem]">
-        {/* Question 1 */}
-        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6 ">
+        {/* Question 1 - Professionalism Issues */}
+        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6">
           <div className="text-gray-500 text-sm mb-1">Question 1 of 5</div>
           <h2 className="text-xl font-medium text-[#197EAB] mb-3">
             Academic/Professional Interruptions
@@ -168,12 +351,10 @@ export default function MiscellaneousQuestions() {
               <label className="flex items-center mb-2">
                 <input
                   type="radio"
-                  name="interruptions"
+                  name="professionalismIssues"
                   className="mr-2 h-4 w-4 text-[#197EAB]"
-                  checked={
-                    formData.academicInterruptions.hasInterruptions === false
-                  }
-                  onChange={() => handleRadioChange("No")}
+                  checked={formData.professionalism.hasIssues === false}
+                  onChange={() => handleProfessionalismRadioChange("No")}
                 />
                 <span>No</span>
               </label>
@@ -181,784 +362,414 @@ export default function MiscellaneousQuestions() {
               <label className="flex items-center">
                 <input
                   type="radio"
-                  name="interruptions"
+                  name="professionalismIssues"
                   className="mr-2 h-4 w-4 text-[#197EAB]"
-                  checked={
-                    formData.academicInterruptions.hasInterruptions === true
-                  }
-                  onChange={() => handleRadioChange("Yes")}
+                  checked={formData.professionalism.hasIssues === true}
+                  onChange={() => handleProfessionalismRadioChange("Yes")}
                 />
                 <span>Yes</span>
               </label>
             </div>
 
-            <div className="mt-4">
-              <p className="text-gray-700 text-sm mb-2">
-                Explain in your own words. Our AI assistant will help you polish
-                it later.
-              </p>
-              <textarea
-                className="w-full border border-gray-300 rounded p-2"
-                rows={4}
-                placeholder="Type Your Answer Here..."
-                value={formData.academicInterruptions.explanation}
-                onChange={(e) =>
-                  handleTextChange("explanation", e.target.value)
-                }
-              ></textarea>
-            </div>
-          </div>
-        </div>
-
-        {/* Question 2 */}
-        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6 ">
-          <div className="text-gray-500 text-sm mb-1">Question 2 of 5</div>
-          <h2 className="text-xl font-medium text-[#197EAB] mb-4">
-            Previous Education
-          </h2>
-
-          <div className="mb-6">
-            <h3 className="text-lg font-medium text-gray-800 mb-3">
-              Undergraduate Degrees
-            </h3>
-
-            {/* Desktop: 3-column grid, Mobile: Stacked layout */}
-            <div className="hidden md:grid md:grid-cols-3 md:gap-4 mb-3">
-              <div>
-                <p className="text-sm text-gray-700 mb-1">School/University</p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "undergraduate",
-                      0,
-                      "school",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-sm text-gray-700 mb-1">
-                  Dates of Attendance
+            {formData.professionalism.hasIssues === true && (
+              <div className="mt-4">
+                <p className="text-gray-700 text-sm mb-2">
+                  Explain in your own words. Our AI assistant will help you polish
+                  it later.
                 </p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "undergraduate",
-                      0,
-                      "dates",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-sm text-gray-700 mb-1">Field of Study</p>
-                <select
-                  className="w-full border border-gray-300 rounded p-2 bg-white"
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "undergraduate",
-                      0,
-                      "field",
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">Select Your Answer</option>
-                  <option value="Biology">Biology</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Psychology">Psychology</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Mobile layout (stacked) */}
-            <div className="md:hidden space-y-4 mb-3">
-              <div>
-                <p className="text-sm text-gray-700 mb-1">School/University</p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "undergraduate",
-                      0,
-                      "school",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-
-              <button
-                className="bg-[#197EAB] text-white px-3 py-1 rounded text-sm flex items-center"
-                onClick={() => addEducationEntry("undergraduate")}
-              >
-                <span className="mr-1">+</span> Add
-              </button>
-
-              <div>
-                <p className="text-sm text-gray-700 mb-1">
-                  Dates of Attendance
-                </p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "undergraduate",
-                      0,
-                      "dates",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-700 mb-1">Field of Study</p>
-                <select
-                  className="w-full border border-gray-300 rounded p-2 bg-white"
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "undergraduate",
-                      0,
-                      "field",
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">Select Your Answer</option>
-                  <option value="Biology">Biology</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Psychology">Psychology</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            {/* For desktop, this shows additional undergraduate entries */}
-            <div className="hidden md:block">
-              {formData.education.undergraduate.map(
-                (degree, index) =>
-                  index > 0 && (
-                    <div
-                      key={`ug-${index}`}
-                      className="grid grid-cols-3 gap-4 mb-3"
-                    >
-                      <div>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.school}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "undergraduate",
-                              index,
-                              "school",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.dates}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "undergraduate",
-                              index,
-                              "dates",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <select
-                          className="w-full border border-gray-300 rounded p-2 bg-white"
-                          value={degree.field}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "undergraduate",
-                              index,
-                              "field",
-                              e.target.value
-                            )
-                          }
-                        >
-                          <option value="">Select Your Answer</option>
-                          <option value="Biology">Biology</option>
-                          <option value="Chemistry">Chemistry</option>
-                          <option value="Physics">Physics</option>
-                          <option value="Psychology">Psychology</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-                  )
-              )}
-
-              <button
-                className="bg-[#197EAB] text-white px-3 py-1 rounded text-sm flex items-center mt-2"
-                onClick={() => addEducationEntry("undergraduate")}
-              >
-                <span className="mr-1">+</span> Add
-              </button>
-            </div>
-
-            {/* For mobile, this shows additional undergraduate entries */}
-            <div className="md:hidden mt-4">
-              {formData.education.undergraduate.map(
-                (degree, index) =>
-                  index > 0 && (
-                    <div
-                      key={`ug-mobile-${index}`}
-                      className="space-y-4 mb-4 pt-4 border-t border-gray-200"
-                    >
-                      <div>
-                        <p className="text-sm text-gray-700 mb-1">
-                          School/University
-                        </p>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.school}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "undergraduate",
-                              index,
-                              "school",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-700 mb-1">
-                          Dates of Attendance
-                        </p>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.dates}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "undergraduate",
-                              index,
-                              "dates",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-700 mb-1">
-                          Field of Study
-                        </p>
-                        <select
-                          className="w-full border border-gray-300 rounded p-2 bg-white"
-                          value={degree.field}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "undergraduate",
-                              index,
-                              "field",
-                              e.target.value
-                            )
-                          }
-                        >
-                          <option value="">Select Your Answer</option>
-                          <option value="Biology">Biology</option>
-                          <option value="Chemistry">Chemistry</option>
-                          <option value="Physics">Physics</option>
-                          <option value="Psychology">Psychology</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-                  )
-              )}
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <h3 className="text-lg font-medium text-gray-800 mb-3">
-              Graduate Degrees
-            </h3>
-
-            {/* Desktop: 3-column grid */}
-            <div className="hidden md:grid md:grid-cols-3 md:gap-4 mb-3">
-              <div>
-                <p className="text-sm text-gray-700 mb-1">School/University</p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "graduate",
-                      0,
-                      "school",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-sm text-gray-700 mb-1">
-                  Dates of Attendance
-                </p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "graduate",
-                      0,
-                      "dates",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-sm text-gray-700 mb-1">Field of Study</p>
-                <select
-                  className="w-full border border-gray-300 rounded p-2 bg-white"
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "graduate",
-                      0,
-                      "field",
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">Select Your Answer</option>
-                  <option value="MBA">MBA</option>
-                  <option value="MS">MS</option>
-                  <option value="PhD">PhD</option>
-                  <option value="MPH">MPH</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Mobile layout (stacked) */}
-            <div className="md:hidden space-y-4 mb-3">
-              <div>
-                <p className="text-sm text-gray-700 mb-1">School/University</p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "graduate",
-                      0,
-                      "school",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-
-              <button
-                className="bg-[#197EAB] text-white px-3 py-1 rounded text-sm flex items-center"
-                onClick={() => addEducationEntry("graduate")}
-              >
-                <span className="mr-1">+</span> Add
-              </button>
-
-              <div>
-                <p className="text-sm text-gray-700 mb-1">
-                  Dates of Attendance
-                </p>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "graduate",
-                      0,
-                      "dates",
-                      e.target.value
-                    )
-                  }
-                />
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-700 mb-1">Field of Study</p>
-                <select
-                  className="w-full border border-gray-300 rounded p-2 bg-white"
-                  onChange={(e) =>
-                    handleEducationInputChange(
-                      "graduate",
-                      0,
-                      "field",
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">Select Your Answer</option>
-                  <option value="MBA">MBA</option>
-                  <option value="MS">MS</option>
-                  <option value="PhD">PhD</option>
-                  <option value="MPH">MPH</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            {/* For desktop, this shows additional graduate entries */}
-            <div className="hidden md:block">
-              {formData.education.graduate.map(
-                (degree, index) =>
-                  index > 0 && (
-                    <div
-                      key={`grad-${index}`}
-                      className="grid grid-cols-3 gap-4 mb-3"
-                    >
-                      <div>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.school}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "graduate",
-                              index,
-                              "school",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.dates}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "graduate",
-                              index,
-                              "dates",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <select
-                          className="w-full border border-gray-300 rounded p-2 bg-white"
-                          value={degree.field}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "graduate",
-                              index,
-                              "field",
-                              e.target.value
-                            )
-                          }
-                        >
-                          <option value="">Select Your Answer</option>
-                          <option value="MBA">MBA</option>
-                          <option value="MS">MS</option>
-                          <option value="PhD">PhD</option>
-                          <option value="MPH">MPH</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-                  )
-              )}
-
-              <button
-                className="bg-[#197EAB] text-white px-3 py-1 rounded text-sm flex items-center mt-2"
-                onClick={() => addEducationEntry("graduate")}
-              >
-                <span className="mr-1">+</span> Add
-              </button>
-            </div>
-
-            {/* For mobile, this shows additional graduate entries */}
-            <div className="md:hidden mt-4">
-              {formData.education.graduate.map(
-                (degree, index) =>
-                  index > 0 && (
-                    <div
-                      key={`grad-mobile-${index}`}
-                      className="space-y-4 mb-4 pt-4 border-t border-gray-200"
-                    >
-                      <div>
-                        <p className="text-sm text-gray-700 mb-1">
-                          School/University
-                        </p>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.school}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "graduate",
-                              index,
-                              "school",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-700 mb-1">
-                          Dates of Attendance
-                        </p>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={degree.dates}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "graduate",
-                              index,
-                              "dates",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-700 mb-1">
-                          Field of Study
-                        </p>
-                        <select
-                          className="w-full border border-gray-300 rounded p-2 bg-white"
-                          value={degree.field}
-                          onChange={(e) =>
-                            handleEducationInputChange(
-                              "graduate",
-                              index,
-                              "field",
-                              e.target.value
-                            )
-                          }
-                        >
-                          <option value="">Select Your Answer</option>
-                          <option value="MBA">MBA</option>
-                          <option value="MS">MS</option>
-                          <option value="PhD">PhD</option>
-                          <option value="MPH">MPH</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-                  )
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Question 3 */}
-        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6 ">
-          <div className="text-gray-500 text-sm mb-1">Question 3 of 5</div>
-          <h2 className="text-xl font-medium text-[#197EAB] mb-4">
-            Honors or Awards
-          </h2>
-
-          <div className="mb-4">
-            <div>
-              <div className="grid grid-cols-2 gap-4 mb-3">
-                <div>
-                  <p className="text-sm text-gray-700 mb-1">Title</p>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded p-2"
-                    placeholder="Type Your Answer Here..."
-                    onChange={(e) =>
-                      handleHonorChange(0, "title", e.target.value)
-                    }
-                  />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-700 mb-1">Date</p>
-                  <input
-                    type="date"
-                    className="w-full border border-gray-300 rounded p-2"
-                    onChange={(e) =>
-                      handleHonorChange(0, "date", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-              <div className="mb-3">
-                <p className="text-sm text-gray-700 mb-1">Description</p>
                 <textarea
-                  className="w-full border border-gray-300 rounded p-2"
-                  rows={3}
-                  placeholder="Type Your Answer Here..."
-                  onChange={(e) =>
-                    handleHonorChange(0, "description", e.target.value)
-                  }
+                  className="w-full border border-gray-300 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows="4"
+                  placeholder="Please provide details about any academic or professional interruptions..."
+                  value={formData.professionalism.explanation}
+                  onChange={(e) => handleProfessionalismTextChange(e.target.value)}
                 ></textarea>
-                <div className="text-right text-xs text-gray-500 mt-1">
-                  {characterCounts.honorsDescription} / 300
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Question 2 - Education */}
+        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6">
+          <div className="text-gray-500 text-sm mb-1">Question 2 of 5</div>
+          <h2 className="text-xl font-medium text-[#197EAB] mb-3">
+            Education Background
+          </h2>
+
+          {/* Undergraduate Education */}
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-gray-700 mb-3">
+              Undergraduate Education
+            </h3>
+
+            {formData.education.undergraduate.map((edu, index) => (
+              <div key={`ug-${index}`} className="mb-4 p-4 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-medium">Entry {index + 1}</h4>
+                  <button
+                    type="button"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => removeEducationEntry("undergraduate", index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      School
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Institution name"
+                      value={edu.school}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "undergraduate",
+                          index,
+                          "school",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      Field of Study
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Major/Field of study"
+                      value={edu.fieldOfStudy}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "undergraduate",
+                          index,
+                          "fieldOfStudy",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={edu.startDate}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "undergraduate",
+                          index,
+                          "startDate",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={edu.endDate}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "undergraduate",
+                          index,
+                          "endDate",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {formData.honorsAwards.map(
-              (honor, index) =>
-                index > 0 && (
-                  <div key={`honor-${index}`} className="mb-4">
-                    <div className="grid grid-cols-2 gap-4 mb-3">
-                      <div>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Type Your Answer Here..."
-                          value={honor.title}
-                          onChange={(e) =>
-                            handleHonorChange(index, "title", e.target.value)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="date"
-                          className="w-full border border-gray-300 rounded p-2"
-                          value={honor.date}
-                          onChange={(e) =>
-                            handleHonorChange(index, "date", e.target.value)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="mb-3">
-                      <textarea
-                        className="w-full border border-gray-300 rounded p-2"
-                        rows={3}
-                        placeholder="Type Your Answer Here..."
-                        value={honor.description}
-                        onChange={(e) =>
-                          handleHonorChange(
-                            index,
-                            "description",
-                            e.target.value
-                          )
-                        }
-                      ></textarea>
-                      <div className="text-right text-xs text-gray-500 mt-1">
-                        {honor.description ? honor.description.length : 0} / 300
-                      </div>
-                    </div>
-                  </div>
-                )
-            )}
+            ))}
 
             <button
-              className="bg-[#197EAB] text-white px-3 py-1 rounded text-sm flex items-center mt-2"
-              onClick={addHonorEntry}
+              type="button"
+              className="mt-2 bg-[#197EAB] text-white py-2 px-4 rounded-lg hover:bg-[#1A6B94] transition duration-300"
+              onClick={() => addEducationEntry("undergraduate")}
             >
-              <span className="mr-1">+</span> Add
+              + Add Undergraduate Education
+            </button>
+          </div>
+
+          {/* Graduate Education */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-700 mb-3">
+              Graduate Education
+            </h3>
+
+            {formData.education.graduate.map((edu, index) => (
+              <div key={`grad-${index}`} className="mb-4 p-4 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-medium">Entry {index + 1}</h4>
+                  <button
+                    type="button"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => removeEducationEntry("graduate", index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      School
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Institution name"
+                      value={edu.school}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "graduate",
+                          index,
+                          "school",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      Field of Study
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Major/Field of study"
+                      value={edu.fieldOfStudy}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "graduate",
+                          index,
+                          "fieldOfStudy",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={edu.startDate}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "graduate",
+                          index,
+                          "startDate",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={edu.endDate}
+                      onChange={(e) =>
+                        handleEducationInputChange(
+                          "graduate",
+                          index,
+                          "endDate",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className="mt-2 bg-[#197EAB] text-white py-2 px-4 rounded-lg hover:bg-[#1A6B94] transition duration-300"
+              onClick={() => addEducationEntry("graduate")}
+            >
+              + Add Graduate Education
             </button>
           </div>
         </div>
 
-        {/* Question 4 */}
-        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6 ">
-          <div className="text-gray-500 text-sm mb-1">Question 4 of 5</div>
-          <h2 className="text-xl font-medium text-[#197EAB] mb-4">
-            Impactful Experience
+        {/* Question 3 - Honors and Awards */}
+        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6">
+          <div className="text-gray-500 text-sm mb-1">Question 3 of 5</div>
+          <h2 className="text-xl font-medium text-[#197EAB] mb-3">
+            Honors and Awards
           </h2>
 
-          <div className="mb-4">
-            <p className="text-gray-800 mb-3">
-              Describe one experience that significantly shaped who you are
-              today.
-            </p>
-            <div className="relative">
-              <textarea
-                className="w-full border border-gray-300 rounded p-2"
-                rows={5}
-                placeholder="You can write freely. Our AI assistant will help you summarize or rephrase later."
-                value={formData.impactfulExperience}
-                onChange={(e) => handleExperienceChange(e.target.value)}
-              ></textarea>
-              <div className="text-right text-xs text-gray-500 mt-1">
-                {characterCounts.impactfulExperience} / 500
+          {formData.honorsAwards.map((honor, index) => (
+            <div key={`honor-${index}`} className="mb-4 p-4 border border-gray-200 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium">Honor/Award {index + 1}</h4>
+                <button
+                  type="button"
+                  className="text-red-500 hover:text-red-700"
+                  onClick={() => removeHonorEntry(index)}
+                >
+                  Remove
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                <div>
+                  <label className="block text-gray-700 text-sm font-medium mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Award or honor title"
+                    value={honor.title}
+                    onChange={(e) => handleHonorChange(index, "title", e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-gray-700 text-sm font-medium mb-1">
+                    Date Received
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={honor.date}
+                    onChange={(e) => handleHonorChange(index, "date", e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-gray-700 text-sm font-medium mb-1">
+                  Description
+                </label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Describe this honor or award"
+                  rows="3"
+                  value={honor.description}
+                  onChange={(e) => handleHonorChange(index, "description", e.target.value)}
+                ></textarea>
+                <p className="text-gray-500 text-right text-sm mt-1">
+                  {honor.description.length} / 500 characters
+                </p>
               </div>
             </div>
-          </div>
+          ))}
+
+          <button
+            type="button"
+            className="mt-2 bg-[#197EAB] text-white py-2 px-4 rounded-lg hover:bg-[#1A6B94] transition duration-300"
+            onClick={addHonorEntry}
+          >
+            + Add Honor or Award
+          </button>
         </div>
 
-        {/* Question 5 */}
-        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6 ">
+        {/* Question 4 - Impactful Experience */}
+        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6">
+          <div className="text-gray-500 text-sm mb-1">Question 4 of 5</div>
+          <h2 className="text-xl font-medium text-[#197EAB] mb-3">
+            Most Impactful Experience
+          </h2>
+
+          <p className="text-gray-700 mb-3">
+            Describe an experience that has significantly influenced your decision to pursue a career in medicine.
+          </p>
+
+          <textarea
+            className="w-full border border-gray-300 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="6"
+            placeholder="Share your most impactful experience..."
+            value={formData.impactfulExperience}
+            onChange={(e) => handleExperienceChange(e.target.value)}
+          ></textarea>
+          <p className="text-gray-500 text-right text-sm mt-1">
+            {characterCounts.impactfulExperience} / 2000 characters
+          </p>
+        </div>
+
+        {/* Question 5 - Hobbies and Interests */}
+        <div className="bg-white rounded-2xl shadow-xl mb-6 p-6">
           <div className="text-gray-500 text-sm mb-1">Question 5 of 5</div>
-          <h2 className="text-xl font-medium text-[#197EAB] mb-4">
+          <h2 className="text-xl font-medium text-[#197EAB] mb-3">
             Hobbies and Interests
           </h2>
 
-          <div className="mb-4">
-            <p className="text-gray-800 mb-3">
-              Please share your hobbies and interests.
-            </p>
-            <div className="relative">
-              <textarea
-                className="w-full border border-gray-300 rounded p-2"
-                rows={4}
-                placeholder="e.g. Hiking, Photography, Digital Art, Reading historical fiction"
-                value={formData.hobbiesInterests}
-                onChange={(e) => handleHobbiesChange(e.target.value)}
-              ></textarea>
-              <div className="text-right text-xs text-gray-500 mt-1">
-                {characterCounts.hobbiesInterests} / 300
-              </div>
-            </div>
-          </div>
+          <p className="text-gray-700 mb-3">
+            Share your hobbies, interests, and activities outside of medicine that contribute to your well-being and personal growth.
+          </p>
 
-          <div className="flex justify-end">
-            <button
-              className="bg-[#197EAB] text-white px-5 py-2 rounded"
-              onClick={handleSubmit}
-            >
-              Submit
-            </button>
-          </div>
+          <textarea
+            className="w-full border border-gray-300 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="4"
+            placeholder="Describe your hobbies and interests..."
+            value={formData.hobbiesInterests}
+            onChange={(e) => handleHobbiesChange(e.target.value)}
+          ></textarea>
+          <p className="text-gray-500 text-right text-sm mt-1">
+            {characterCounts.hobbiesInterests} / 1000 characters
+          </p>
         </div>
 
-        <div className="flex justify-center mb-6">
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center mb-10">
           <button
-            className="bg-[#197EAB] text-white px-5 py-2 rounded"
-            onClick={handleSaveAndContinue}
+            type="button"
+            className="bg-gray-200 text-gray-800 py-2 px-6 rounded-lg hover:bg-gray-300 transition duration-300"
+            onClick={() => navigate("/dashboard")}
           >
-            Save & Continue
+            Cancel
           </button>
+
+          <div className="flex gap-4">
+            <button
+              type="button"
+              className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300 disabled:bg-green-300 disabled:cursor-not-allowed"
+              onClick={handleSaveAndContinue}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save and Continue Editing"}
+            </button>
+
+            <button
+              type="button"
+              className="bg-[#197EAB] text-white py-2 px-6 rounded-lg hover:bg-[#1A6B94] transition duration-300 disabled:bg-blue-300 disabled:cursor-not-allowed"
+              onClick={handleSubmit}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save and Return to Dashboard"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ const ProgramPreference = require('../models/ProgramPreference');
 // Get miscellaneous questions data
 exports.getMiscData = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
 
     // Find miscellaneous data for the user
     let miscData = await MiscellaneousQuestion.findOne({ userId });
@@ -36,7 +36,7 @@ exports.getMiscData = async (req, res) => {
 // Save professionalism issues
 exports.saveProfessionalism = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const { hasIssues, explanation } = req.body;
 
     // Validate input
@@ -91,7 +91,7 @@ exports.saveProfessionalism = async (req, res) => {
 // Save education information
 exports.saveEducation = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const { undergraduate, graduate } = req.body;
 
     // Validate input
@@ -141,7 +141,7 @@ exports.saveEducation = async (req, res) => {
 // Add honor/award
 exports.addHonorAward = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const { title, date, description } = req.body;
 
     // Validate input
@@ -189,7 +189,7 @@ exports.addHonorAward = async (req, res) => {
 // Update honor/award
 exports.updateHonorAward = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const honorId = req.params.id;
     const { title, date, description } = req.body;
 
@@ -251,7 +251,7 @@ exports.updateHonorAward = async (req, res) => {
 // Delete honor/award
 exports.deleteHonorAward = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const honorId = req.params.id;
 
     // Find miscellaneous data
@@ -301,7 +301,7 @@ exports.deleteHonorAward = async (req, res) => {
 // Save impactful experience and hobbies
 exports.saveImpactfulAndHobbies = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const { impactfulExperience, hobbiesInterests } = req.body;
 
     // Find or create miscellaneous data
@@ -344,7 +344,7 @@ exports.saveImpactfulAndHobbies = async (req, res) => {
 // Save all miscellaneous data at once
 exports.saveAllMiscData = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user.id;
     const {
       professionalism,
       education,

@@ -15,6 +15,7 @@ const openaiRoutes = require('./routes/openaiRoutes');
 const personalStatementRoutes = require('./routes/personalStatementRoutes');
 const researchRoutes = require('./routes/researchRoutes');
 const experienceRoutes = require('./routes/experienceRoutes');
+const miscRoutes = require('./routes/miscRoutes');
 
 // Initialize express app
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/openai', openaiRoutes);
 app.use('/api/personal-statement', personalStatementRoutes);
 app.use('/api/research', researchRoutes);
 app.use('/api/experiences', experienceRoutes);
+app.use('/api/misc-questions', miscRoutes);
 
 // Debugging route
 app.get('/api/debug', (req, res) => {
@@ -53,7 +55,8 @@ app.get('/api/debug', (req, res) => {
     message: 'Debug route working',
     routes: {
       '/api/experiences': 'Registered',
-      '/api/experiences/parse-cv': 'Available via POST'
+      '/api/experiences/parse-cv': 'Available via POST',
+      '/api/misc-questions': 'Registered'
     }
   });
 });
