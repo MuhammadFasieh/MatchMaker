@@ -20,7 +20,9 @@ export default function Dashboard() {
     sectionStatus: {
       personalStatement: { status: 'Not Started', icon: 'arrow', color: 'amber' },
       research: { status: 'Not Started', icon: 'arrow', color: 'amber' },
-      experiences: { status: 'Not Started', icon: 'arrow', color: 'amber' }
+      experiences: { status: 'Not Started', icon: 'arrow', color: 'amber' },
+      miscellaneous: { status: 'Not Started', icon: 'arrow', color: 'amber' },
+      programPreference: { status: 'Not Started', icon: 'arrow', color: 'amber' }
     }
   });
 
@@ -69,6 +71,16 @@ export default function Dashboard() {
               status: sections.experiences.status, 
               icon: getIconForStatus(sections.experiences.status), 
               color: getColorForStatus(sections.experiences.status) 
+            },
+            miscellaneous: { 
+              status: sections.miscellaneous.status, 
+              icon: getIconForStatus(sections.miscellaneous.status), 
+              color: getColorForStatus(sections.miscellaneous.status) 
+            },
+            programPreference: { 
+              status: sections.programPreference.status, 
+              icon: getIconForStatus(sections.programPreference.status), 
+              color: getColorForStatus(sections.programPreference.status) 
             }
           }
         });
@@ -121,6 +133,16 @@ export default function Dashboard() {
               status: 'Not Started', 
               icon: getIconForStatus('Not Started'), 
               color: getColorForStatus('Not Started') 
+            },
+            miscellaneous: { 
+              status: 'Not Started', 
+              icon: getIconForStatus('Not Started'), 
+              color: getColorForStatus('Not Started') 
+            },
+            programPreference: { 
+              status: 'Not Started', 
+              icon: getIconForStatus('Not Started'), 
+              color: getColorForStatus('Not Started') 
             }
           }
         });
@@ -146,6 +168,16 @@ export default function Dashboard() {
             color: getColorForStatus('Not Started') 
           },
           experiences: { 
+            status: 'Not Started', 
+            icon: getIconForStatus('Not Started'), 
+            color: getColorForStatus('Not Started') 
+          },
+          miscellaneous: { 
+            status: 'Not Started', 
+            icon: getIconForStatus('Not Started'), 
+            color: getColorForStatus('Not Started') 
+          },
+          programPreference: { 
             status: 'Not Started', 
             icon: getIconForStatus('Not Started'), 
             color: getColorForStatus('Not Started') 
@@ -288,6 +320,16 @@ export default function Dashboard() {
               status: sections.experiences.status, 
               icon: getIconForStatus(sections.experiences.status), 
               color: getColorForStatus(sections.experiences.status) 
+            },
+            miscellaneous: { 
+              status: sections.miscellaneous.status, 
+              icon: getIconForStatus(sections.miscellaneous.status), 
+              color: getColorForStatus(sections.miscellaneous.status) 
+            },
+            programPreference: { 
+              status: sections.programPreference.status, 
+              icon: getIconForStatus(sections.programPreference.status), 
+              color: getColorForStatus(sections.programPreference.status) 
             }
           }
         });
@@ -326,8 +368,10 @@ export default function Dashboard() {
   const mapSectionNameToApi = (sectionName) => {
     const mapping = {
       'Personal Statement': 'personalStatement',
-      'Research Products': 'researchProducts',
-      'Experiences': 'experiences'
+      'Research Products': 'research',
+      'Experiences': 'experiences',
+      'Miscellaneous Questions': 'miscellaneous',
+      'Program Preferences': 'programPreference'
     };
     
     return mapping[sectionName] || sectionName.toLowerCase();
@@ -375,7 +419,9 @@ export default function Dashboard() {
     const mapping = {
       'Personal Statement': 'personalStatement',
       'Research Products': 'research',
-      'Experiences': 'experiences'
+      'Experiences': 'experiences',
+      'Miscellaneous Questions': 'miscellaneous',
+      'Program Preferences': 'programPreference'
     };
     
     return mapping[sectionName] || sectionName.toLowerCase();
@@ -783,7 +829,7 @@ export default function Dashboard() {
         </div>
         
         {/* Experiences */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between py-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between py-4 border-b border-gray-200">
           <p className="font-medium text-gray-800 mb-2 md:mb-0">Experiences</p>
           <div className="flex items-center mt-2 md:mt-0">
             <p className="text-gray-500 mr-4">{progressData.sectionStatus.experiences.status}</p>
@@ -805,6 +851,58 @@ export default function Dashboard() {
               )}
             </div>
             {getSectionButton('Experiences', '/experiences')}
+          </div>
+        </div>
+        
+        {/* Miscellaneous Questions */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between py-4 border-b border-gray-200">
+          <p className="font-medium text-gray-800 mb-2 md:mb-0">Miscellaneous Questions</p>
+          <div className="flex items-center mt-2 md:mt-0">
+            <p className="text-gray-500 mr-4">{progressData.sectionStatus.miscellaneous.status}</p>
+            <div className={`bg-${progressData.sectionStatus.miscellaneous.color}-500 rounded-full p-1.5 mr-4 transition-all duration-300`}>
+              {progressData.sectionStatus.miscellaneous.icon === 'plus' && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+              )}
+              {progressData.sectionStatus.miscellaneous.icon === 'check' && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+              {progressData.sectionStatus.miscellaneous.icon === 'arrow' && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            {getSectionButton('Miscellaneous Questions', '/misc-questions')}
+          </div>
+        </div>
+        
+        {/* Program Preferences */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between py-4">
+          <p className="font-medium text-gray-800 mb-2 md:mb-0">Program Preferences</p>
+          <div className="flex items-center mt-2 md:mt-0">
+            <p className="text-gray-500 mr-4">{progressData.sectionStatus.programPreference.status}</p>
+            <div className={`bg-${progressData.sectionStatus.programPreference.color}-500 rounded-full p-1.5 mr-4 transition-all duration-300`}>
+              {progressData.sectionStatus.programPreference.icon === 'plus' && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+              )}
+              {progressData.sectionStatus.programPreference.icon === 'check' && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+              {progressData.sectionStatus.programPreference.icon === 'arrow' && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            {getSectionButton('Program Preferences', '/program-preferences')}
           </div>
         </div>
       </div>

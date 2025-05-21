@@ -171,7 +171,7 @@ export default function CombinedExperienceComponents() {
     const dateRangeMatch = text.match(dateRangeRegex);
     
     if (dateRangeMatch) {
-      return {
+    return {
         start: dateRangeMatch[1],
         end: dateRangeMatch[2].match(/present|current|now|ongoing/i) ? null : dateRangeMatch[2]
       };
@@ -310,7 +310,7 @@ export default function CombinedExperienceComponents() {
     
     // Look for employment status indicators - only when explicitly mentioned
     if (text.match(/\b(?:full[- ]time|40\s*hours\s*(?:a|per)\s*week|permanent\s*position)\b/i)) 
-      return 'Full-time';
+    return 'Full-time';
     
     if (text.match(/\b(?:part[- ]time|20\s*hours\s*(?:a|per)\s*week|half[- ]time)\b/i)) 
       return 'Part-time';
@@ -549,12 +549,12 @@ export default function CombinedExperienceComponents() {
               setFormData(processedExperiences[0]);
             }
             
-            clearInterval(interval);
-            setProgress(100);
-            
-            setTimeout(() => {
-              setStage('form');
-            }, 500);
+        clearInterval(interval);
+        setProgress(100);
+        
+        setTimeout(() => {
+          setStage('form');
+        }, 500);
             return;
           }
           
@@ -572,7 +572,7 @@ export default function CombinedExperienceComponents() {
       
       // Fall back to local parsing for non-PDFs or if backend parsing fails
       const parsed = await parseCV(file);
-      if (parsed && parsed.length > 0) {
+        if (parsed && parsed.length > 0) {
         console.log(`Client-side parsing successful: ${parsed.length} experiences found`);
         // Try to save the parsed experiences to MongoDB, but don't block on failure
         try {
@@ -703,21 +703,21 @@ export default function CombinedExperienceComponents() {
           setFormData(processedParsed[0]);
         }
         
-        setCurrentPage(1);
-        clearInterval(interval);
-        setProgress(100);
-        
+          setCurrentPage(1);
+          clearInterval(interval);
+          setProgress(100);
+          
         // Wait a moment to show 100% before transitioning
-        setTimeout(() => {
-          setStage('form');
-        }, 500);
-      } else {
-        throw new Error('No experiences found in CV');
+          setTimeout(() => {
+            setStage('form');
+          }, 500);
+        } else {
+          throw new Error('No experiences found in CV');
       }
     } catch (error) {
       console.error('Error parsing CV:', error);
       clearInterval(interval);
-      alert('Failed to parse CV. Please try again or manually enter your experiences.');
+        alert('Failed to parse CV. Please try again or manually enter your experiences.');
       setStage('upload');
     }
   };
@@ -772,7 +772,7 @@ export default function CombinedExperienceComponents() {
       }
       
       // Update the experiences state with the saved data
-      setExperiences(updatedExperiences);
+          setExperiences(updatedExperiences);
       
       // Save experiences data to localStorage for resuming progress
       try {
@@ -1047,7 +1047,7 @@ export default function CombinedExperienceComponents() {
       
       setTimeout(() => {
         setShowAlert(false);
-        setFormSubmitted(true);
+      setFormSubmitted(true);
         
         // Generate AI insights after saving
         generateAIInsights();
@@ -1653,12 +1653,12 @@ export default function CombinedExperienceComponents() {
               {experiences.length > 0 ? (
                 experiences.map((exp, index) => (
                   <div key={exp._id || index} className="flex items-center">
-                    <input
-                      type="checkbox"
+                  <input
+                    type="checkbox"
                       id={exp._id || `exp-${index}`}
                       checked={selectedExperiences.includes(exp._id || `exp-${index}`)}
                       onChange={() => handleExperienceToggle(exp._id || `exp-${index}`)}
-                      className="h-5 w-5 text-[#197EAB] border-gray-300 rounded"
+                    className="h-5 w-5 text-[#197EAB] border-gray-300 rounded"
                       disabled={selectedExperiences.length >= 3 && !selectedExperiences.includes(exp._id || `exp-${index}`)}
                     />
                     <label htmlFor={exp._id || `exp-${index}`} className="ml-3 text-lg text-gray-800">
@@ -1668,8 +1668,8 @@ export default function CombinedExperienceComponents() {
                           ({exp.startDate} - {exp.isCurrent ? 'Present' : exp.endDate})
                         </span>
                       )}
-                    </label>
-                  </div>
+                  </label>
+                </div>
                 ))
               ) : (
                 <p>No experiences found. Please add experiences first.</p>
@@ -1742,7 +1742,7 @@ export default function CombinedExperienceComponents() {
               )}
               
               {!loadingAi && !aiError && aiExpandedExperiences.length > 0 && (
-                <div className="space-y-12">
+              <div className="space-y-12">
                   {aiExpandedExperiences.map((item, expIndex) => (
                     <div key={item.experience._id} className="border-b pb-10 mb-10 last:border-b-0">
                       <h3 className="text-xl font-medium mb-4">
@@ -1770,8 +1770,8 @@ export default function CombinedExperienceComponents() {
                               <h4 className="font-medium">Option {i + 1}</h4>
                             </div>
                             <p className="text-gray-700 leading-relaxed">{expansion.text}</p>
-                          </div>
-                        ))}
+                  </div>
+                ))}
                       </div>
                     </div>
                   ))}
@@ -1786,7 +1786,7 @@ export default function CombinedExperienceComponents() {
                       </svg>
                       Complete Section & Apply to Profile
                     </button>
-                  </div>
+              </div>
                 </div>
               )}
               

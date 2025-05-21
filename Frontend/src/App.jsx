@@ -85,6 +85,24 @@ const App = () => {
       </div>
     },
     {
+      path:'/misc-questions',
+      element:
+      <div>
+        <Navbar/>
+        <MiscellaneousQuestions/>
+        <Footer/>
+      </div>
+    },
+    {
+      path:'/program-preferences',
+      element:
+      <div>
+        <Navbar/>
+        <FindingPrograms/>
+        <Footer/>
+      </div>
+    },
+    {
       path:'/research',
       element:
       <div>
