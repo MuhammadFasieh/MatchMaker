@@ -8,7 +8,7 @@ const errorHandler = require('./middleware/error');
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/users');
-const programRoutes = require('./routes/programs');
+const programRoutes = require('./routes/programRoutes');
 const applicationRoutes = require('./routes/applications');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const openaiRoutes = require('./routes/openaiRoutes');
@@ -30,16 +30,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   console.log('Headers:', JSON.stringify(req.headers));
+  
+  // Add User info to log if authenticated
+  if (req.user) {
+    console.log("User authenticated:", req.user.name || req.user.email);
+  }
+  
   next();
 });
 
 // Serve static files if needed
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Routes
+// Routes - make sure to register program routes before other potentially conflicting routes
 app.use('/api/auth', authRoutes);
+app.use('/api/programs', programRoutes); // This is the corrected path for program routes
 app.use('/api/users', userRoutes);
-app.use('/api/programs', programRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/openai', openaiRoutes);
@@ -54,6 +60,8 @@ app.get('/api/debug', (req, res) => {
     success: true,
     message: 'Debug route working',
     routes: {
+      '/api/programs': 'Registered with proper order',
+      '/api/programs/preferences': 'Available via GET and POST',
       '/api/experiences': 'Registered',
       '/api/experiences/parse-cv': 'Available via POST',
       '/api/misc-questions': 'Registered'

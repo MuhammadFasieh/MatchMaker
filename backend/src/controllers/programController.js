@@ -1,6 +1,10 @@
 const Program = require('../models/Program');
 const User = require('../models/User');
 const ProgramPreference = require('../models/ProgramPreference');
+const PersonalStatement = require('../models/PersonalStatement');
+const ResearchProduct = require('../models/ResearchProduct');
+const Experience = require('../models/Experience');
+const MiscellaneousQuestion = require('../models/MiscellaneousQuestion');
 const ErrorResponse = require('../utils/errorResponse');
 const asyncHandler = require('../middleware/async');
 const { generateProgramRecommendations } = require('../services/programRecommendationService');
@@ -96,15 +100,20 @@ exports.deleteProgram = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/programs/preferences
 // @access  Private
 exports.getProgramPreferences = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id);
-
-  if (!user) {
-    return next(new ErrorResponse('User not found', 404));
+  // Find program preferences for the user
+  let preferences = await ProgramPreference.findOne({ userId: req.user.id });
+  
+  // If no preferences found, return empty object
+  if (!preferences) {
+    return res.status(200).json({
+      success: true,
+      data: {}
+    });
   }
 
   res.status(200).json({
     success: true,
-    data: user.programPreferences || {}
+    data: preferences
   });
 });
 
@@ -112,16 +121,53 @@ exports.getProgramPreferences = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/programs/preferences
 // @access  Private
 exports.saveProgramPreferences = asyncHandler(async (req, res, next) => {
-  const user = await User.findByIdAndUpdate(
-    req.user.id,
-    { programPreferences: req.body },
-    { new: true, runValidators: true }
-  );
-
-  res.status(200).json({
-    success: true,
-    data: user.programPreferences
-  });
+  try {
+    const userId = req.user.id;
+    
+    // Validate required fields
+    const { primarySpecialty, preferredStates, hospitalPreference, residentCountPreference, valuedCharacteristics } = req.body;
+    
+    // Set completion flag
+    req.body.isComplete = true;
+    req.body.userId = userId;
+    
+    // Find and update program preferences or create new
+    const preferences = await ProgramPreference.findOneAndUpdate(
+      { userId },
+      req.body,
+      { 
+        new: true, 
+        upsert: true, 
+        runValidators: true,
+        setDefaultsOnInsert: true
+      }
+    );
+    
+    // Update dashboard progress through helper function
+    await updateDashboardProgress(userId);
+    
+    res.status(200).json({
+      success: true,
+      data: preferences
+    });
+  } catch (error) {
+    console.error('Error saving program preferences:', error);
+    
+    // If validation error, return appropriate message
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        error: messages
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while saving program preferences',
+      error: error.message
+    });
+  }
 });
 
 // @desc    Get program recommendations based on user preferences
@@ -275,5 +321,43 @@ const updateUserProgress = async (userId) => {
     await user.save();
   } catch (err) {
     console.error('Error updating user progress:', err);
+  }
+};
+
+// Helper function to update dashboard progress
+const updateDashboardProgress = async (userId) => {
+  try {
+    // Get all section models
+    const personalStatement = await PersonalStatement.findOne({ user: userId }).select('isComplete');
+    const researchProducts = await ResearchProduct.find({ userId }).select('isComplete');
+    const experiences = await Experience.find({ userId }).select('isComplete');
+    const miscellaneous = await MiscellaneousQuestion.findOne({ userId }).select('isComplete');
+    const programPreference = await ProgramPreference.findOne({ userId }).select('isComplete');
+    
+    // Count completed sections
+    let completedSections = 0;
+    const totalSections = 5;
+    
+    if (personalStatement && personalStatement.isComplete) completedSections++;
+    if (researchProducts.length > 0 && researchProducts.every(p => p.isComplete)) completedSections++;
+    if (experiences.length > 0 && experiences.every(e => e.isComplete)) completedSections++;
+    if (miscellaneous && miscellaneous.isComplete) completedSections++;
+    if (programPreference && programPreference.isComplete) completedSections++;
+    
+    // Calculate percentage
+    const percentageComplete = Math.round((completedSections / totalSections) * 100);
+    
+    // Update user progress
+    const user = await User.findById(userId);
+    if (user) {
+      user.applicationProgress = {
+        totalSections,
+        completedSections,
+        percentageComplete
+      };
+      await user.save();
+    }
+  } catch (err) {
+    console.error('Error updating dashboard progress:', err);
   }
 }; 

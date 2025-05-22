@@ -660,6 +660,25 @@ export const programs = {
   }
 };
 
+// Program Preferences API
+export const programPreferences = {
+  // Get user's program preferences
+  get: async () => {
+    return await safeFetch(`${API_URL}/programs/preferences`, {
+      method: 'GET'
+    });
+  },
+  
+  // Save user's program preferences
+  save: async (data) => {
+    return await safeFetch(`${API_URL}/programs/preferences`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
+
 // Miscellaneous Questions API
 export const miscQuestions = {
   // Get all user's misc questions

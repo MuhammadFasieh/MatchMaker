@@ -4,7 +4,29 @@ const programController = require('../controllers/programController');
 const { protect, authorize } = require('../middleware/auth');
 const applicationRouter = require('./applications');
 
-// Re-route into other resource routers
+// Search programs
+router.get('/search', programController.searchPrograms);
+
+// Featured programs
+router.get('/featured', programController.getFeaturedPrograms);
+
+// Program Preferences Routes - must come before parameterized routes
+router
+  .route('/preferences')
+  .get(protect, programController.getProgramPreferences)
+  .post(protect, programController.saveProgramPreferences);
+
+router.get('/preferences/recommendations', protect, programController.getProgramRecommendations);
+router.get('/preferences/saved', protect, programController.getSavedPrograms);
+
+// Get user's saved programs
+router.get(
+  '/saved',
+  protect,
+  programController.getSavedPrograms
+);
+
+// Re-route into other resource routers - move after specific routes
 router.use('/:programId/applications', applicationRouter);
 
 // Routes
@@ -17,6 +39,7 @@ router
     programController.createProgram
   );
 
+// Parameterized routes should come last
 router
   .route('/:id')
   .get(programController.getProgram)
@@ -31,12 +54,6 @@ router
     programController.deleteProgram
   );
 
-// Search programs
-router.get('/search', programController.searchPrograms);
-
-// Featured programs
-router.get('/featured', programController.getFeaturedPrograms);
-
 // Save program to user's saved list
 router.put(
   '/:id/save',
@@ -49,13 +66,6 @@ router.delete(
   '/:id/save',
   protect,
   programController.unsaveProgram
-);
-
-// Get user's saved programs
-router.get(
-  '/saved',
-  protect,
-  programController.getSavedPrograms
 );
 
 module.exports = router; 

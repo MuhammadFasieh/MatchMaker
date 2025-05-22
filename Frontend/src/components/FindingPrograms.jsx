@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { programPreferences } from "../services/api";
+import { useNavigate } from "react-router-dom";
 
 const states = [
   "Alabama",
@@ -54,9 +56,14 @@ const states = [
 ];
 
 export default function FindingPrograms() {
+  const navigate = useNavigate();
   const [showStateDropdown, setShowStateDropdown] = useState(false);
   const [selectedStates, setSelectedStates] = useState([]);
   const [selectedOptions, setSelectedOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   // Added form data state to store all inputs
   const [formData, setFormData] = useState({
@@ -67,6 +74,42 @@ export default function FindingPrograms() {
     preferredResidentCount: "",
     valuedCharacteristics: [],
   });
+
+  // Fetch existing preferences on component mount
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      try {
+        setLoading(true);
+        const response = await programPreferences.get();
+        
+        if (response && response.success && response.data) {
+          // Map backend data to frontend format
+          const preferences = response.data;
+          
+          // Set form data from API response
+          setFormData({
+            onlySearchingSpecialty: preferences.primarySpecialty ? true : false,
+            otherSpecialties: preferences.otherSpecialties ? preferences.otherSpecialties.join(", ") : "",
+            selectedStates: preferences.preferredStates || [],
+            preferredHospitalType: preferences.hospitalPreference || "",
+            preferredResidentCount: preferences.residentCountPreference || "",
+            valuedCharacteristics: preferences.valuedCharacteristics || [],
+          });
+          
+          // Also update UI state
+          setSelectedStates(preferences.preferredStates || []);
+          setSelectedOptions(preferences.valuedCharacteristics || []);
+        }
+      } catch (err) {
+        console.error("Error fetching program preferences:", err);
+        setError("Failed to load your program preferences. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchPreferences();
+  }, []);
 
   // Update form data whenever any input changes
   const updateFormData = (field, value) => {
@@ -164,22 +207,107 @@ export default function FindingPrograms() {
     updateFormData("preferredResidentCount", value);
   };
 
-  const handleSubmit = () => {
-    // This function would handle sending the formData to your backend API
-    console.log("Form data to send to backend:", formData);
-    // Here you would add your API call, e.g.:
-    // axios.post('/api/submit-residency-preferences', formData)
-    //   .then(response => {
-    //     console.log("Data submitted successfully:", response.data);
-    //     resetForm(); // Reset form after successful submission
-    //   })
-    //   .catch(error => {
-    //     console.error("Error submitting data:", error);
-    //   });
-
-    // For now, just reset the form immediately
-    resetForm();
+  const handleSubmit = async () => {
+    try {
+      // Show saving indicator
+      setSaving(true);
+      setError(null);
+      
+      // Map form data to backend format
+      const programPreferenceData = {
+        primarySpecialty: formData.onlySearchingSpecialty ? "Yes" : "No",
+        otherSpecialties: formData.otherSpecialties.split(",").map(s => s.trim()).filter(s => s),
+        preferredStates: formData.selectedStates,
+        hospitalPreference: formData.preferredHospitalType,
+        residentCountPreference: formData.preferredResidentCount,
+        valuedCharacteristics: formData.valuedCharacteristics,
+        isComplete: true
+      };
+      
+      // Validate required fields
+      if (!programPreferenceData.hospitalPreference) {
+        setError("Please select your preferred hospital type");
+        setSaving(false);
+        return;
+      }
+      
+      if (!programPreferenceData.residentCountPreference) {
+        setError("Please select your preferred resident count");
+        setSaving(false);
+        return;
+      }
+      
+      if (programPreferenceData.preferredStates.length === 0) {
+        setError("Please select at least one preferred state");
+        setSaving(false);
+        return;
+      }
+      
+      if (programPreferenceData.valuedCharacteristics.length === 0) {
+        setError("Please select at least one valued characteristic");
+        setSaving(false);
+        return;
+      }
+      
+      // Send data to backend
+      const response = await programPreferences.save(programPreferenceData);
+      
+      if (response && response.success) {
+        setSuccessMessage("Program preferences saved successfully!");
+        setTimeout(() => {
+          // Navigate back to dashboard after successful save
+          navigate("/dashboard");
+        }, 1500);
+      } else {
+        throw new Error(response?.message || "Unknown error saving preferences");
+      }
+    } catch (err) {
+      console.error("Error saving program preferences:", err);
+      setError("Failed to save program preferences. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // Add error and success message display near submit button
+  const renderMessages = () => (
+    <>
+      {error && (
+        <div className="text-red-500 text-sm mt-2 mb-2 text-center">{error}</div>
+      )}
+      {successMessage && (
+        <div className="text-green-500 text-sm mt-2 mb-2 text-center">{successMessage}</div>
+      )}
+    </>
+  );
+
+  // Update the desktop button to show loading state
+  const renderDesktopButton = () => (
+    <div className="hidden md:flex justify-center mt-8">
+      {renderMessages()}
+      <button
+        className={`bg-[#197EAB] text-white py-2 px-6 rounded ${saving ? 'opacity-70 cursor-not-allowed' : ''}`}
+        onClick={handleSubmit}
+        disabled={saving}
+      >
+        {saving ? 'Saving...' : 'Save & Continue'}
+      </button>
+    </div>
+  );
+  
+  // Update the mobile button to show loading state
+  const renderMobileButton = () => (
+    <div className="md:hidden w-full flex justify-center mt-6 mb-4 flex-col items-center">
+      {renderMessages()}
+      <button
+        className={`bg-[#197EAB] text-white py-2 px-6 rounded w-[180px] text-center ${saving ? 'opacity-70 cursor-not-allowed' : ''}`}
+        onClick={handleSubmit}
+        disabled={saving}
+      >
+        {saving ? 'Saving...' : 'Save & Continue'}
+      </button>
+    </div>
+  );
 
   return (
     <div className="px-[2rem]">
@@ -187,7 +315,7 @@ export default function FindingPrograms() {
       <div className="lg:w-[80%] xl:w-[924px] m-auto my-9">
         <p className="text-center text-[16px] text-[#104962]" style={{letterSpacing:'0.5px'}}>
           This section is meant to help applicants find programs that best fit
-          what they’re looking for. We recommend applying widely, but this page
+          what they're looking for. We recommend applying widely, but this page
           can help serve as a guide for programs that fit your preferences
           and/or for program signaling.
         </p>
@@ -210,7 +338,7 @@ export default function FindingPrograms() {
               name="specialty-search-desktop"
               value="no"
               className="w-5 h-5 border border-gray-400 mr-2 appearance-none rounded-full checked:border-blue-600 checked:border-4"
-              onChange={() => handleSpecialtyChoice("no", false)}
+              onChange={() => handleSpecialtyChoice("no")}
             />
             <label htmlFor="specialty-no-desktop" className="ml-1">
               No
@@ -223,7 +351,7 @@ export default function FindingPrograms() {
               name="specialty-search-desktop"
               value="yes"
               className="w-5 h-5 border border-gray-400 mr-2 appearance-none rounded-full checked:border-blue-600 checked:border-4"
-              onChange={() => handleSpecialtyChoice("yes", false)}
+              onChange={() => handleSpecialtyChoice("yes")}
             />
             <label htmlFor="specialty-yes-desktop" className="ml-1">
               Yes
@@ -244,7 +372,7 @@ export default function FindingPrograms() {
               name="specialty-search-mobile"
               value="no"
               className="w-4 h-4 border border-gray-300 mr-2"
-              onChange={() => handleSpecialtyChoice("no", true)}
+              onChange={() => handleSpecialtyChoice("no")}
             />
             <label htmlFor="specialty-no-mobile" className="text-base">
               No
@@ -257,7 +385,7 @@ export default function FindingPrograms() {
               name="specialty-search-mobile"
               value="yes"
               className="w-4 h-4 border border-gray-300 mr-2"
-              onChange={() => handleSpecialtyChoice("yes", true)}
+              onChange={() => handleSpecialtyChoice("yes")}
             />
             <label htmlFor="specialty-yes-mobile" className="text-base">
               Yes
@@ -721,24 +849,10 @@ export default function FindingPrograms() {
         </div>
 
         {/* Desktop view - original button */}
-        <div className="hidden md:flex justify-center mt-8">
-          <button
-            className="bg-[#197EAB] text-white py-2 px-6 rounded"
-            onClick={handleSubmit}
-          >
-            Save & Continue
-          </button>
-        </div>
+        {renderDesktopButton()}
 
         {/* Mobile view - button */}
-        <div className="md:hidden w-full flex justify-center mt-6 mb-4">
-          <button
-            className="bg-[#197EAB] text-white py-2 px-6 rounded w-[180px] text-center"
-            onClick={handleSubmit}
-          >
-            Save & Continue
-          </button>
-        </div>
+        {renderMobileButton()}
       </div>
     </div>
   );

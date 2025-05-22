@@ -39,6 +39,12 @@ app.use((req, res, next) => {
   } else {
     console.log('No auth header found');
   }
+  
+  // Add User info to log if authenticated
+  if (req.user) {
+    console.log("User authenticated:", req.user.name || req.user.email);
+  }
+  
   next();
 });
 
@@ -57,6 +63,7 @@ const programs = require('./src/routes/programRoutes');
 // Mount routers
 app.use('/api/auth', auth);
 app.use('/api/profile', profile);
+app.use('/api/programs', programs);
 app.use('/api/dashboard', dashboard);
 app.use('/api/application', application);
 app.use('/api/experiences', experiences);
@@ -64,7 +71,6 @@ app.use('/api/research', research);
 app.use('/api/openai', openai);
 app.use('/api/personal-statement', personalStatement);
 app.use('/api/misc-questions', miscQuestions);
-app.use('/api/programs', programs);
 
 // Basic health check route
 app.get('/health', (req, res) => {
