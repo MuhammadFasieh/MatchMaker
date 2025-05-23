@@ -12,4 +12,7 @@ router.get('/check-readiness', protect, dashboardController.checkApplicationRead
 // Update section progress
 router.put('/:sectionName', protect, dashboardController.updateSectionProgress);
 
+// Add route to download user data as PDF
+router.get('/download-pdf', protect, dashboardController.generateUserDataPdf);
+
 module.exports = router; 

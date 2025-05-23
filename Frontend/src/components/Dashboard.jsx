@@ -559,12 +559,15 @@ export default function Dashboard() {
     const sectionKey = sectionToKey(sectionName);
     const section = progressData.sectionStatus[sectionKey];
     
+    // Add cache-busting parameter to all section paths
+    const freshPath = `${path}?from=dashboard&fresh=true`;
+    
     // Special handling for Personal Statement - only show Start or Completed
     if (sectionName === 'Personal Statement') {
       if (section.status === 'Completed') {
         return (
           <div className="flex space-x-2">
-            <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
+            <Link to={freshPath} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
               Edit
             </Link>
             <button 
@@ -580,7 +583,7 @@ export default function Dashboard() {
         // For Personal Statement, treat "In Progress" as "Not Started"
         return (
           <div className="flex space-x-2">
-            <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
+            <Link to={freshPath} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
               Start
             </Link>
           </div>
@@ -592,7 +595,7 @@ export default function Dashboard() {
     if (section.status === 'Completed') {
       return (
         <div className="flex space-x-2">
-          <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
+          <Link to={freshPath} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
             Edit
           </Link>
           <button 
@@ -607,7 +610,7 @@ export default function Dashboard() {
     } else if (section.status === 'In Progress') {
       return (
         <div className="flex space-x-2">
-          <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
+          <Link to={freshPath} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
             Continue
           </Link>
         </div>
@@ -615,7 +618,7 @@ export default function Dashboard() {
     } else {
       return (
         <div className="flex space-x-2">
-          <Link to={path} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
+          <Link to={freshPath} className="border border-gray-300 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">
             Start
           </Link>
         </div>
@@ -643,6 +646,36 @@ export default function Dashboard() {
         type: 'error',
         text: `Failed to clear data: ${err.message}`
       });
+    }
+  };
+
+  // Function to handle PDF download
+  const handleDownloadPdf = () => {
+    setUpdateMessage({
+      type: 'info',
+      text: 'Generating PDF, please wait...'
+    });
+    
+    try {
+      dashboard.downloadUserDataPdf();
+      
+      // This message will be replaced by the toast from api.js
+      setTimeout(() => {
+        if (updateMessage && updateMessage.text === 'Generating PDF, please wait...') {
+          setUpdateMessage(null);
+        }
+      }, 3000);
+    } catch (error) {
+      console.error('Error initiating PDF download:', error);
+      setUpdateMessage({
+        type: 'error',
+        text: 'Failed to generate PDF. Please try again later.'
+      });
+      
+      // Clear error message after 5 seconds
+      setTimeout(() => {
+        setUpdateMessage(null);
+      }, 5000);
     }
   };
 
@@ -761,7 +794,16 @@ export default function Dashboard() {
 
       {/* Applicant Progress */}
       <div className="bg-white rounded-2xl shadow-xl mb-4 p-6 w-full max-w-4xl">
-        <h2 className="text-2xl font-medium text-[#2d6a8e] mb-4">Applicant Progress</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-medium text-[#2d6a8e]">Applicant Progress</h2>
+          <button 
+            onClick={handleDownloadPdf} 
+            className="flex items-center bg-[#2d6a8e] text-white px-3 py-2 rounded text-sm hover:bg-[#1d5a7e] transition-colors"
+            title="Download your data as PDF"
+          >
+            <span className="mr-2">📄</span> Download PDF
+          </button>
+        </div>
         <div className="flex justify-between items-center mb-2">
           <p className="text-gray-500">{progressData.completedSections} / {progressData.totalSections} Sections</p>
           <p className="text-2xl font-medium text-[#2d6a8e]">{progressData.percentage}%</p>

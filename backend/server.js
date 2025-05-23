@@ -62,7 +62,7 @@ const programs = require('./src/routes/programRoutes');
 
 // Mount routers
 app.use('/api/auth', auth);
-app.use('/api/profile', profile);
+app.use('/api/profile', profile); 
 app.use('/api/programs', programs);
 app.use('/api/dashboard', dashboard);
 app.use('/api/application', application);

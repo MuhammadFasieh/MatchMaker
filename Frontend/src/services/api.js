@@ -247,6 +247,108 @@ export const dashboard = {
       body: JSON.stringify(data),
       headers: { 'Content-Type': 'application/json' }
     });
+  },
+  
+  // Download user data as PDF
+  downloadUserDataPdf: () => {
+    const token = getAuthToken();
+    const url = `${API_URL}/dashboard/download-pdf`;
+    
+    // Create a hidden anchor element
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    
+    // Add the auth token as a header
+    if (token) {
+      // Show a loading message
+      const loadingToast = document.createElement('div');
+      loadingToast.style.position = 'fixed';
+      loadingToast.style.top = '20px';
+      loadingToast.style.left = '50%';
+      loadingToast.style.transform = 'translateX(-50%)';
+      loadingToast.style.background = '#2d6a8e';
+      loadingToast.style.color = 'white';
+      loadingToast.style.padding = '10px 20px';
+      loadingToast.style.borderRadius = '5px';
+      loadingToast.style.zIndex = '9999';
+      loadingToast.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+      loadingToast.textContent = 'Generating PDF...';
+      document.body.appendChild(loadingToast);
+      
+      // For security reasons, we use a technique that works with the browser's API
+      // This triggers a download with authentication
+      fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        // Remove loading message
+        document.body.removeChild(loadingToast);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `matchmaker-user-data-${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      })
+      .catch(error => {
+        console.error('Error downloading PDF:', error);
+        
+        // Show error toast
+        const errorToast = document.createElement('div');
+        errorToast.style.position = 'fixed';
+        errorToast.style.top = '20px';
+        errorToast.style.left = '50%';
+        errorToast.style.transform = 'translateX(-50%)';
+        errorToast.style.background = '#e74c3c';
+        errorToast.style.color = 'white';
+        errorToast.style.padding = '10px 20px';
+        errorToast.style.borderRadius = '5px';
+        errorToast.style.zIndex = '9999';
+        errorToast.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+        errorToast.textContent = 'Failed to generate PDF. Please ensure all sections have data.';
+        document.body.appendChild(errorToast);
+        
+        // Remove error toast after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(errorToast);
+        }, 5000);
+      });
+    } else {
+      console.error('No auth token available for PDF download');
+      
+      // Show error toast for missing auth
+      const errorToast = document.createElement('div');
+      errorToast.style.position = 'fixed';
+      errorToast.style.top = '20px';
+      errorToast.style.left = '50%';
+      errorToast.style.transform = 'translateX(-50%)';
+      errorToast.style.background = '#e74c3c';
+      errorToast.style.color = 'white';
+      errorToast.style.padding = '10px 20px';
+      errorToast.style.borderRadius = '5px';
+      errorToast.style.zIndex = '9999';
+      errorToast.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+      errorToast.textContent = 'You must be logged in to download your data.';
+      document.body.appendChild(errorToast);
+      
+      // Remove error toast after 5 seconds
+      setTimeout(() => {
+        document.body.removeChild(errorToast);
+      }, 5000);
+    }
+    
+    // This doesn't return a Promise because it handles the download directly
+    return { success: true };
   }
 };
 

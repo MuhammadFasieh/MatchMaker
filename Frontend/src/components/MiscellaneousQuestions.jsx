@@ -372,19 +372,19 @@ export default function MiscellaneousQuestions() {
             </div>
 
             {formData.professionalism.hasIssues === true && (
-              <div className="mt-4">
-                <p className="text-gray-700 text-sm mb-2">
-                  Explain in your own words. Our AI assistant will help you polish
-                  it later.
-                </p>
-                <textarea
+            <div className="mt-4">
+              <p className="text-gray-700 text-sm mb-2">
+                Explain in your own words. Our AI assistant will help you polish
+                it later.
+              </p>
+              <textarea
                   className="w-full border border-gray-300 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows="4"
                   placeholder="Please provide details about any academic or professional interruptions..."
                   value={formData.professionalism.explanation}
                   onChange={(e) => handleProfessionalismTextChange(e.target.value)}
-                ></textarea>
-              </div>
+              ></textarea>
+            </div>
             )}
           </div>
         </div>
@@ -413,103 +413,103 @@ export default function MiscellaneousQuestions() {
                   >
                     Remove
                   </button>
-                </div>
-                
+            </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                  <div>
+              <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       School
                     </label>
-                    <input
-                      type="text"
+                <input
+                  type="text"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Institution name"
                       value={edu.school}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "undergraduate",
+                  onChange={(e) =>
+                    handleEducationInputChange(
+                      "undergraduate",
                           index,
-                          "school",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                  
-                  <div>
+                      "school",
+                      e.target.value
+                    )
+                  }
+                />
+              </div>
+
+              <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       Field of Study
                     </label>
-                    <input
-                      type="text"
+                <input
+                  type="text"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Major/Field of study"
                       value={edu.fieldOfStudy}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "undergraduate",
+                  onChange={(e) =>
+                    handleEducationInputChange(
+                      "undergraduate",
                           index,
                           "fieldOfStudy",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-                
+                      e.target.value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                      <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       Start Date
                     </label>
-                    <input
+                        <input
                       type="date"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={edu.startDate}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "undergraduate",
-                          index,
+                          onChange={(e) =>
+                            handleEducationInputChange(
+                              "undergraduate",
+                              index,
                           "startDate",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
                   
-                  <div>
+                      <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       End Date
                     </label>
-                    <input
+                        <input
                       type="date"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={edu.endDate}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "undergraduate",
-                          index,
+                          onChange={(e) =>
+                            handleEducationInputChange(
+                              "undergraduate",
+                              index,
                           "endDate",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                      </div>
+                    </div>
             ))}
 
-            <button
+              <button
               type="button"
               className="mt-2 bg-[#197EAB] text-white py-2 px-4 rounded-lg hover:bg-[#1A6B94] transition duration-300"
-              onClick={() => addEducationEntry("undergraduate")}
-            >
+                onClick={() => addEducationEntry("undergraduate")}
+              >
               + Add Undergraduate Education
-            </button>
-          </div>
+              </button>
+            </div>
 
           {/* Graduate Education */}
-          <div>
+                      <div>
             <h3 className="text-lg font-medium text-gray-700 mb-3">
               Graduate Education
             </h3>
@@ -525,99 +525,99 @@ export default function MiscellaneousQuestions() {
                   >
                     Remove
                   </button>
-                </div>
-                
+            </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                  <div>
+              <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       School
                     </label>
-                    <input
-                      type="text"
+                <input
+                  type="text"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Institution name"
                       value={edu.school}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "graduate",
+                  onChange={(e) =>
+                    handleEducationInputChange(
+                      "graduate",
                           index,
-                          "school",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                  
-                  <div>
+                      "school",
+                      e.target.value
+                    )
+                  }
+                />
+              </div>
+
+              <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       Field of Study
                     </label>
-                    <input
-                      type="text"
+                <input
+                  type="text"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Major/Field of study"
                       value={edu.fieldOfStudy}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "graduate",
+                  onChange={(e) =>
+                    handleEducationInputChange(
+                      "graduate",
                           index,
                           "fieldOfStudy",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-                
+                      e.target.value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                      <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       Start Date
                     </label>
-                    <input
+                        <input
                       type="date"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={edu.startDate}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "graduate",
-                          index,
+                          onChange={(e) =>
+                            handleEducationInputChange(
+                              "graduate",
+                              index,
                           "startDate",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
                   
-                  <div>
+                      <div>
                     <label className="block text-gray-700 text-sm font-medium mb-1">
                       End Date
                     </label>
-                    <input
+                        <input
                       type="date"
                       className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={edu.endDate}
-                      onChange={(e) =>
-                        handleEducationInputChange(
-                          "graduate",
-                          index,
+                          onChange={(e) =>
+                            handleEducationInputChange(
+                              "graduate",
+                              index,
                           "endDate",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                      </div>
+                    </div>
             ))}
 
-            <button
+              <button
               type="button"
               className="mt-2 bg-[#197EAB] text-white py-2 px-4 rounded-lg hover:bg-[#1A6B94] transition duration-300"
-              onClick={() => addEducationEntry("graduate")}
-            >
+                onClick={() => addEducationEntry("graduate")}
+              >
               + Add Graduate Education
-            </button>
+              </button>
           </div>
         </div>
 
@@ -639,60 +639,60 @@ export default function MiscellaneousQuestions() {
                 >
                   Remove
                 </button>
-              </div>
-              
+            </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div>
+                      <div>
                   <label className="block text-gray-700 text-sm font-medium mb-1">
                     Title
                   </label>
-                  <input
-                    type="text"
+                        <input
+                          type="text"
                     className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Award or honor title"
-                    value={honor.title}
+                          value={honor.title}
                     onChange={(e) => handleHonorChange(index, "title", e.target.value)}
-                  />
-                </div>
+                        />
+                      </div>
                 
-                <div>
+                      <div>
                   <label className="block text-gray-700 text-sm font-medium mb-1">
                     Date Received
                   </label>
-                  <input
-                    type="date"
+                        <input
+                          type="date"
                     className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={honor.date}
+                          value={honor.date}
                     onChange={(e) => handleHonorChange(index, "date", e.target.value)}
-                  />
-                </div>
-              </div>
+                        />
+                      </div>
+                    </div>
               
               <div>
                 <label className="block text-gray-700 text-sm font-medium mb-1">
                   Description
                 </label>
-                <textarea
+                      <textarea
                   className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Describe this honor or award"
                   rows="3"
-                  value={honor.description}
+                        value={honor.description}
                   onChange={(e) => handleHonorChange(index, "description", e.target.value)}
-                ></textarea>
+                      ></textarea>
                 <p className="text-gray-500 text-right text-sm mt-1">
                   {honor.description.length} / 500 characters
                 </p>
-              </div>
-            </div>
+                      </div>
+                    </div>
           ))}
 
-          <button
+            <button
             type="button"
             className="mt-2 bg-[#197EAB] text-white py-2 px-4 rounded-lg hover:bg-[#1A6B94] transition duration-300"
-            onClick={addHonorEntry}
-          >
+              onClick={addHonorEntry}
+            >
             + Add Honor or Award
-          </button>
+            </button>
         </div>
 
         {/* Question 4 - Impactful Experience */}
@@ -706,13 +706,13 @@ export default function MiscellaneousQuestions() {
             Describe an experience that has significantly influenced your decision to pursue a career in medicine.
           </p>
 
-          <textarea
+              <textarea
             className="w-full border border-gray-300 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows="6"
             placeholder="Share your most impactful experience..."
-            value={formData.impactfulExperience}
-            onChange={(e) => handleExperienceChange(e.target.value)}
-          ></textarea>
+                value={formData.impactfulExperience}
+                onChange={(e) => handleExperienceChange(e.target.value)}
+              ></textarea>
           <p className="text-gray-500 text-right text-sm mt-1">
             {characterCounts.impactfulExperience} / 2000 characters
           </p>
@@ -727,35 +727,35 @@ export default function MiscellaneousQuestions() {
 
           <p className="text-gray-700 mb-3">
             Share your hobbies, interests, and activities outside of medicine that contribute to your well-being and personal growth.
-          </p>
+            </p>
 
-          <textarea
+              <textarea
             className="w-full border border-gray-300 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows="4"
             placeholder="Describe your hobbies and interests..."
-            value={formData.hobbiesInterests}
-            onChange={(e) => handleHobbiesChange(e.target.value)}
-          ></textarea>
+                value={formData.hobbiesInterests}
+                onChange={(e) => handleHobbiesChange(e.target.value)}
+              ></textarea>
           <p className="text-gray-500 text-right text-sm mt-1">
             {characterCounts.hobbiesInterests} / 1000 characters
           </p>
-        </div>
+          </div>
 
         {/* Action Buttons */}
         <div className="flex justify-between items-center mb-10">
-          <button
+            <button
             type="button"
             className="bg-gray-200 text-gray-800 py-2 px-6 rounded-lg hover:bg-gray-300 transition duration-300"
             onClick={() => navigate("/dashboard")}
-          >
+            >
             Cancel
-          </button>
+            </button>
 
           <div className="flex gap-4">
-            <button
+          <button
               type="button"
               className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300 disabled:bg-green-300 disabled:cursor-not-allowed"
-              onClick={handleSaveAndContinue}
+            onClick={handleSaveAndContinue}
               disabled={saving}
             >
               {saving ? "Saving..." : "Save and Continue Editing"}
@@ -768,7 +768,7 @@ export default function MiscellaneousQuestions() {
               disabled={saving}
             >
               {saving ? "Saving..." : "Save and Return to Dashboard"}
-            </button>
+          </button>
           </div>
         </div>
       </div>

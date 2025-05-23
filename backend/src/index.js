@@ -26,6 +26,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Increase the request size limit for PDF uploads and downloads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Set response timeout for large file operations like PDF generation
+app.use((req, res, next) => {
+  // Increase timeout to 2 minutes for PDF generation routes
+  if (req.path.includes('/download-pdf') || req.path.includes('/generate')) {
+    req.setTimeout(120000); // 2 minutes
+    res.setTimeout(120000); // 2 minutes
+  }
+  next();
+});
+
 // Debug middleware to log all requests
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);

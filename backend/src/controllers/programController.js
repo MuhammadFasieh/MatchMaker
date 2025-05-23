@@ -102,7 +102,7 @@ exports.deleteProgram = asyncHandler(async (req, res, next) => {
 exports.getProgramPreferences = asyncHandler(async (req, res, next) => {
   // Find program preferences for the user
   let preferences = await ProgramPreference.findOne({ userId: req.user.id });
-  
+
   // If no preferences found, return empty object
   if (!preferences) {
     return res.status(200).json({
@@ -141,15 +141,15 @@ exports.saveProgramPreferences = asyncHandler(async (req, res, next) => {
         runValidators: true,
         setDefaultsOnInsert: true
       }
-    );
+  );
     
     // Update dashboard progress through helper function
     await updateDashboardProgress(userId);
-    
-    res.status(200).json({
-      success: true,
+
+  res.status(200).json({
+    success: true,
       data: preferences
-    });
+  });
   } catch (error) {
     console.error('Error saving program preferences:', error);
     
