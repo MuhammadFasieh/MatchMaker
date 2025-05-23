@@ -772,12 +772,14 @@ export default function CombinedExperienceComponents() {
       }
       
       // Update the experiences state with the saved data
-          setExperiences(updatedExperiences);
+      setExperiences(updatedExperiences);
       
       // Save experiences data to localStorage for resuming progress
       try {
+        const currentUserId = localStorage.getItem('userId');
         localStorage.setItem('matchmaker_experiences', JSON.stringify(updatedExperiences));
         localStorage.setItem('matchmaker_experiences_timestamp', new Date().toISOString());
+        localStorage.setItem('matchmaker_experiences_userId', currentUserId);
       } catch (e) {
         console.warn('Could not save experiences to localStorage:', e);
       }
@@ -1112,9 +1114,13 @@ export default function CombinedExperienceComponents() {
         // First check localStorage for saved experiences
         const savedExperiences = localStorage.getItem('matchmaker_experiences');
         const timestamp = localStorage.getItem('matchmaker_experiences_timestamp');
+        const token = localStorage.getItem('token');
+        const currentUserId = localStorage.getItem('userId');
+        const storedUserId = localStorage.getItem('matchmaker_experiences_userId');
         
         // If we have saved experiences that are less than 24 hours old, use them
-        if (savedExperiences && timestamp) {
+        // BUT only if they belong to the current user
+        if (savedExperiences && timestamp && storedUserId && storedUserId === currentUserId) {
           const lastSaved = new Date(timestamp);
           const now = new Date();
           const hoursSinceSaved = (now - lastSaved) / (1000 * 60 * 60);
@@ -1132,6 +1138,16 @@ export default function CombinedExperienceComponents() {
               return;
             }
           }
+        } else if (savedExperiences && (!storedUserId || storedUserId !== currentUserId)) {
+          // Clear localStorage if experiences belong to a different user
+          console.log('Clearing localStorage experiences for different user');
+          localStorage.removeItem('matchmaker_experiences');
+          localStorage.removeItem('matchmaker_experiences_timestamp');
+          localStorage.removeItem('matchmaker_experiences_userId');
+          localStorage.removeItem('matchmaker_meaningful_experiences');
+          localStorage.removeItem('matchmaker_ai_expanded_experiences');
+          localStorage.removeItem('matchmaker_ai_expansions');
+          localStorage.removeItem('matchmaker_ai_expansions_finalized');
         }
         
         // If no valid localStorage data, try to load from the server
@@ -1179,10 +1195,11 @@ export default function CombinedExperienceComponents() {
           setCurrentPage(1);
           setStage('form');
           
-          // Also save to localStorage for future use
+          // Also save to localStorage for future use, including the user ID
           try {
             localStorage.setItem('matchmaker_experiences', JSON.stringify(processedExperiences));
             localStorage.setItem('matchmaker_experiences_timestamp', new Date().toISOString());
+            localStorage.setItem('matchmaker_experiences_userId', currentUserId);
           } catch (e) {
             console.warn('Could not save experiences to localStorage:', e);
           }
